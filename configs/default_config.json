@@ -1,0 +1,25 @@
+{
+  "data": {
+    "num_customers": 90,
+    "history_days": 120,
+    "max_events_per_customer": 256,
+    "seed": 7
+  },
+  "model": {
+    "context_length": 256,
+    "hidden_size": 256,
+    "num_layers": 4,
+    "num_heads": 8,
+    "dropout": 0.1,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "max_epochs": 4,
+    "patience": 3,
+    "forecast_steps": 12
+  },
+  "app": {
+    "default_horizon_days": 30,
+    "allowed_horizons": [30, 60, 90],
+    "distressed_threshold": 0.5
+  }
+}
