@@ -26,7 +26,8 @@ This checklist maps the current workspace against the project requirements in [r
 - [ ] Final report should explain how production data would be collected, anonymized, cleaned, and structured.
 - [ ] Final report should include preprocessing steps in plain language with an example training sample.
 - [ ] State clearly that the prototype uses synthetic data only and contains no PII.
-- [ ] If fairness analysis is required empirically, add more customer attributes such as income band, employment type, or region to the synthetic customer table.
+- [x] Fairness-ready customer attributes exist in the synthetic customer table:
+  income band, employment type, region, and risk segment.
 
 ## 3. Model Architecture And Training Approach
 
@@ -48,9 +49,9 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Still Needed In Code For Stronger Alignment
 
-- [ ] Add true autoregressive generation instead of heuristic future-event generation.
-- [ ] Add intervention conditioning to the model rather than only rule-based intervention policies.
-- [ ] Add additional heads or objectives if you want to match the requirements more closely:
+- [x] Add true autoregressive generation instead of heuristic future-event generation.
+- [x] Add intervention conditioning to the model rather than only rule-based intervention policies.
+- [x] Add additional heads or objectives for:
   next amount bucket prediction and next balance-delta bucket prediction.
 - [ ] If time permits, evaluate multiple random seeds and compare stability.
 
@@ -65,9 +66,9 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Still Needed For Stronger Requirement Coverage
 
-- [ ] Make forecasting model-driven instead of rule-driven.
-- [ ] Make intervention simulation learned or conditioned by the sequence model.
-- [ ] Add a clearer summary of top forecasted negative events for each scenario.
+- [x] Make forecasting model-driven instead of rule-driven.
+- [x] Make intervention simulation learned or conditioned by the sequence model.
+- [x] Add a clearer summary of top forecasted negative events for each scenario.
 
 ## 5. Evaluation
 
@@ -79,14 +80,14 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Still Needed In Code Or Analysis
 
-- [ ] Add early-warning metrics such as lead time before distress events.
-- [ ] Add false-positive analysis for stable customers.
-- [ ] Add simulation quality metrics:
+- [x] Add early-warning metrics such as lead time before distress events.
+- [x] Add false-positive analysis for stable customers.
+- [x] Add simulation quality metrics:
   plausibility of event mix, balance realism, and similarity to generator assumptions.
-- [ ] Add intervention usefulness metrics:
+- [x] Add intervention usefulness metrics:
   risk reduction frequency, material scenario changes, and per-intervention comparison.
-- [ ] Add repeated-run stability analysis if simulation remains stochastic.
-- [ ] Add fairness breakdowns across customer segments if segment fields are added.
+- [x] Add repeated-run stability analysis if simulation remains stochastic.
+- [x] Add fairness breakdowns across customer segments.
 
 ## 6. Downstream Applications
 
@@ -105,7 +106,7 @@ This checklist maps the current workspace against the project requirements in [r
 ### Still Needed In Code If You Want Stronger Demo Coverage
 
 - [ ] Add a collections prioritization or ranked-customer view in the dashboard.
-- [ ] Add portfolio-level stress or cohort scenario monitoring in the dashboard.
+- [x] Add portfolio-level stress or cohort scenario monitoring in the dashboard.
 
 ## 7. Governance, Risk, And Controls
 
@@ -124,9 +125,9 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Still Needed In Code Or UI
 
-- [ ] Add a dashboard section or page for governance notes.
-- [ ] Add explicit fairness note, privacy note, explainability note, and reliability note to the UI.
-- [ ] Add empirical fairness evaluation if customer segment fields are available.
+- [x] Add a dashboard section or page for governance notes.
+- [x] Add explicit fairness note, privacy note, explainability note, and reliability note to the UI.
+- [x] Add empirical fairness evaluation if customer segment fields are available.
 
 ## 8. Economic Value Measurement
 
@@ -150,11 +151,11 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Still Needed For Full Requirement Match
 
-- [ ] Add a Model and Governance page or section.
-- [ ] Add an explicit synthetic demo data banner or label.
-- [ ] Add a clearer balance chart in Customer Explorer.
-- [ ] Add a focused negative-event summary in What-If Simulator.
-- [ ] Add architecture summary and transformer-vs-LSTM rationale to the UI.
+- [x] Add a Model and Governance page or section.
+- [x] Add an explicit synthetic demo data banner or label.
+- [x] Add a clearer balance chart in Customer Explorer.
+- [x] Add a focused negative-event summary in What-If Simulator.
+- [x] Add architecture summary and transformer-vs-LSTM rationale to the UI.
 
 ## 10. Testing And Validation
 
@@ -184,14 +185,15 @@ This checklist maps the current workspace against the project requirements in [r
 
 - [ ] Final report write-up for data strategy, model rationale, governance, economic value, assumptions, and downstream applications.
 - [ ] Slides that clearly explain the MarS alignment, architecture, and outcomes.
-- [ ] Dashboard/UI updates for Model and Governance content if you want full frontend requirement coverage.
+- [x] Dashboard/UI updates for Model and Governance content for full frontend requirement coverage.
 
 ### High Value If Time Permits
 
-- [ ] Add early-warning and intervention evaluation metrics.
-- [ ] Add collections prioritization and portfolio stress views.
-- [ ] Add customer segment fields to support fairness evaluation.
+- [x] Add early-warning and intervention evaluation metrics.
+- [ ] Add collections prioritization and ranked-customer actioning view.
+- [x] Add portfolio stress views.
+- [x] Add customer segment fields to support fairness evaluation.
 
 ### Stretch Goal
 
-- [ ] Replace heuristic forecasting with transformer-driven autoregressive simulation.
+- [x] Replace heuristic forecasting with transformer-driven autoregressive simulation.

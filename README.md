@@ -6,7 +6,7 @@ The prototype includes:
 
 - a synthetic retail banking event generator
 - a shared sequence-data pipeline
-- a causal transformer and LSTM baseline
+- a causal transformer forecaster and LSTM baseline scorer
 - a deterministic intervention simulator
 - a Streamlit analyst dashboard
 
@@ -43,8 +43,13 @@ regtech/
 - Canonical event schema with chronological account-state consistency
 - Customer-level train/validation/test splits
 - Shared history windowing for both sequence models
-- Transformer training for next-event prediction plus distress classification
-- LSTM baseline for 30-day distress prediction
+- Transformer training for:
+  - next-event prediction
+  - next amount-bucket prediction
+  - next balance-delta-bucket prediction
+  - distress classification
+- Intervention-conditioned transformer forecasting
+- LSTM baseline for primary 30-day distress prediction
 - Public APIs:
   - `score_customer(history, horizon_days=30)`
   - `forecast_customer(history, horizon_days=30)`
@@ -53,6 +58,12 @@ regtech/
   - Overview
   - Customer Explorer
   - What-If Simulator
+  - Model And Governance
+- Portfolio stress monitoring and fairness-ready customer metadata
+- Evaluation artifacts for:
+  - holdout classification metrics
+  - simulation quality and intervention usefulness
+  - subgroup fairness breakdowns
 - Automated tests for data integrity, split leakage, training artifacts, and inference contract
 
 ## Requirements
@@ -97,14 +108,17 @@ This will generate:
 - `artifacts/transformer.pt`
 - `artifacts/lstm.pt`
 - `artifacts/metrics.json`
+- `artifacts/simulation_metrics.json`
+- `artifacts/fairness_metrics.json`
 
 The training pipeline:
 
 - builds synthetic datasets
 - constructs customer-history windows
-- trains the transformer and LSTM
+- trains the transformer and LSTM with verbose per-epoch logging
 - evaluates both models on validation and test splits
 - saves model checkpoints and metric summaries
+- computes fairness, early-warning, simulation-realism, stability, and intervention-usefulness summaries
 
 ## Streamlit App
 
@@ -117,8 +131,11 @@ PYTHONPATH=src streamlit run app.py
 The app supports:
 
 - cohort-level overview and distress distribution
-- per-customer event timeline and risk review
+- per-customer event timeline, balance chart, utilization chart, and risk review
 - intervention what-if comparison across `30`, `60`, and `90` day horizons
+- top forecasted negative-event summaries and scenario metrics
+- portfolio stress monitoring by archetype, income band, employment type, region, and risk segment
+- model and governance documentation with fairness summaries
 
 ## Apple Silicon Note
 
@@ -166,10 +183,11 @@ The current tests cover:
 
 ## Current Limitations
 
-- Forecast generation is still rule-based rather than fully transformer-decoded
-- Intervention effects are policy-driven, not learned causal effects
+- Forecasting is transformer-decoded when compatible trained artifacts exist, but inference still retains heuristic fallbacks if artifacts are missing or stale
+- Intervention conditioning is learned directionally inside the synthetic environment, not a causal estimate of real-world treatment effect
 - The prototype is optimized for coursework and demos, not production deployment
 - Full training speed depends on local PyTorch device support
+- Final report, slide deck, and business-value write-up still need to be completed outside the codebase
 
 ## Project Context
 

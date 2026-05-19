@@ -15,7 +15,8 @@
     "learning_rate": 0.001,
     "max_epochs": 8,
     "patience": 4,
-    "forecast_steps": 12
+    "forecast_steps": 12,
+    "intervention_augmentation_rate": 0.15
   },
   "app": {
     "default_horizon_days": 30,

@@ -36,6 +36,7 @@ class ModelConfig:
     max_epochs: int = 8
     patience: int = 4
     forecast_steps: int = 12
+    intervention_augmentation_rate: float = 0.15
 
 
 @dataclass

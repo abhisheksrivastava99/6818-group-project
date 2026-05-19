@@ -22,6 +22,7 @@ class CausalEventTransformer(nn.Module):
         self.balance_embed = nn.Embedding(bucket_sizes["balance"], hidden_size)
         self.util_embed = nn.Embedding(bucket_sizes["util"], hidden_size)
         self.gap_embed = nn.Embedding(bucket_sizes["gap"], hidden_size)
+        self.intervention_embed = nn.Embedding(bucket_sizes["intervention"], hidden_size)
         self.pos_embed = nn.Embedding(256, hidden_size)
 
         encoder_layer = nn.TransformerEncoderLayer(
@@ -39,9 +40,11 @@ class CausalEventTransformer(nn.Module):
         )
         self.dropout = nn.Dropout(dropout)
         self.next_event_head = nn.Linear(hidden_size, vocab_size)
+        self.next_amount_head = nn.Linear(hidden_size, bucket_sizes["amount"])
+        self.next_balance_delta_head = nn.Linear(hidden_size, bucket_sizes["delta"])
         self.distress_head = nn.Linear(hidden_size, 1)
 
-    def forward(self, seq_tokens: torch.Tensor, mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, seq_tokens: torch.Tensor, mask: torch.Tensor) -> dict[str, torch.Tensor]:
         positions = torch.arange(seq_tokens.size(1), device=seq_tokens.device).unsqueeze(0)
         hidden = (
             self.event_embed(seq_tokens[:, :, 0])
@@ -49,6 +52,7 @@ class CausalEventTransformer(nn.Module):
             + self.balance_embed(seq_tokens[:, :, 2])
             + self.util_embed(seq_tokens[:, :, 3])
             + self.gap_embed(seq_tokens[:, :, 4])
+            + self.intervention_embed(seq_tokens[:, :, 5])
             + self.pos_embed(positions)
         )
         hidden = self.dropout(hidden)
@@ -56,6 +60,9 @@ class CausalEventTransformer(nn.Module):
 
         last_index = mask.sum(dim=1).clamp(min=1) - 1
         pooled = encoded[torch.arange(encoded.size(0), device=encoded.device), last_index]
-        next_event_logits = self.next_event_head(pooled)
-        distress_logits = self.distress_head(pooled).squeeze(-1)
-        return next_event_logits, distress_logits
+        return {
+            "next_event_logits": self.next_event_head(pooled),
+            "next_amount_logits": self.next_amount_head(pooled),
+            "next_balance_delta_logits": self.next_balance_delta_head(pooled),
+            "distress_logits": self.distress_head(pooled).squeeze(-1),
+        }

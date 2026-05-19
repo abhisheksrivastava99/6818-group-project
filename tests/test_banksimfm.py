@@ -10,6 +10,8 @@ from banksimfm.config import AppConfig, DataConfig, ModelConfig, ProjectConfig
 from banksimfm.data.pipeline import build_datasets
 from banksimfm.inference import forecast_customer, score_customer, simulate_intervention
 from banksimfm.models.training import train_models
+from banksimfm.models.transformer import CausalEventTransformer
+from banksimfm.data.pipeline import AMOUNT_BINS, BALANCE_BINS, DELTA_BINS, GAP_BINS, UTIL_BINS
 
 
 def tiny_config(root_dir: Path) -> ProjectConfig:
@@ -65,6 +67,37 @@ class BankSimFMTests(unittest.TestCase):
             self.assertTrue((config.artifacts_dir / "transformer.pt").exists())
             self.assertTrue((config.artifacts_dir / "lstm.pt").exists())
             self.assertTrue((config.artifacts_dir / "metrics.json").exists())
+            self.assertTrue((config.artifacts_dir / "simulation_metrics.json").exists())
+            self.assertTrue((config.artifacts_dir / "fairness_metrics.json").exists())
+
+    def test_customer_metadata_and_transformer_heads(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as tmp_dir:
+            bundle, datasets = build_datasets(tiny_config(Path(tmp_dir)))
+            for column in ["income_band", "employment_type", "region", "risk_segment"]:
+                self.assertIn(column, bundle.customers.columns)
+
+            sample = datasets["train"][0]
+            self.assertEqual(sample["seq_tokens"].shape[-1], 6)
+            transformer = CausalEventTransformer(
+                vocab_size=len(bundle.encoders.event_type_to_id) + 1,
+                bucket_sizes={
+                    "amount": len(AMOUNT_BINS),
+                    "balance": len(BALANCE_BINS),
+                    "util": len(UTIL_BINS),
+                    "gap": len(GAP_BINS),
+                    "delta": len(DELTA_BINS),
+                    "intervention": len(bundle.encoders.intervention_type_to_id),
+                },
+                hidden_size=64,
+                num_layers=1,
+                num_heads=4,
+                dropout=0.1,
+            )
+            outputs = transformer(sample["seq_tokens"].unsqueeze(0), sample["mask"].unsqueeze(0))
+            self.assertIn("next_event_logits", outputs)
+            self.assertIn("next_amount_logits", outputs)
+            self.assertIn("next_balance_delta_logits", outputs)
+            self.assertIn("distress_logits", outputs)
 
     def test_public_inference_contract(self) -> None:
         with tempfile.TemporaryDirectory(dir="/tmp") as tmp_dir:

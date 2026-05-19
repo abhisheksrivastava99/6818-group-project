@@ -125,7 +125,56 @@ def _sample_profile(archetype: str, rng: np.random.Generator) -> Dict[str, float
         "loan_due_day": int(rng.integers(7, 21)),
         "credit_due_day": int(rng.integers(14, 27)),
     }
+    profile["income_band"] = _income_band(profile["income"])
+    profile["employment_type"] = _employment_type(archetype, rng)
+    profile["region"] = _region(rng)
+    profile["risk_segment"] = _risk_segment(archetype, profile)
     return profile
+
+
+def _income_band(income: float) -> str:
+    if income < 2500:
+        return "low"
+    if income < 3300:
+        return "middle"
+    return "upper_middle"
+
+
+def _employment_type(archetype: str, rng: np.random.Generator) -> str:
+    if archetype == "stable_salaried":
+        choices = ["full_time", "professional", "government"]
+        probs = [0.65, 0.2, 0.15]
+    elif archetype == "volatile_income":
+        choices = ["gig", "contract", "self_employed"]
+        probs = [0.45, 0.25, 0.3]
+    elif archetype == "high_obligation":
+        choices = ["full_time", "service", "contract"]
+        probs = [0.55, 0.25, 0.2]
+    elif archetype == "rising_utilization":
+        choices = ["full_time", "service", "small_business"]
+        probs = [0.45, 0.35, 0.2]
+    else:
+        choices = ["service", "contract", "gig"]
+        probs = [0.35, 0.3, 0.35]
+    return str(rng.choice(choices, p=probs))
+
+
+def _region(rng: np.random.Generator) -> str:
+    return str(rng.choice(["north", "south", "east", "west", "central"], p=[0.18, 0.18, 0.21, 0.19, 0.24]))
+
+
+def _risk_segment(archetype: str, profile: Dict[str, float]) -> str:
+    if archetype == "near_distress":
+        return "elevated"
+    if archetype == "rising_utilization":
+        return "watchlist"
+    if archetype == "high_obligation":
+        return "burdened"
+    if archetype == "volatile_income":
+        return "income_volatility"
+    if profile["miss_tendency"] > 0.03:
+        return "emerging_risk"
+    return "stable"
 
 
 def _make_event(
@@ -211,7 +260,7 @@ def _generate_customer_events(
     start_date: datetime,
     config: DataConfig,
     rng: np.random.Generator,
-) -> List[CustomerEvent]:
+) -> Tuple[List[CustomerEvent], Dict[str, object]]:
     profile = _sample_profile(archetype, rng)
     credit_limit = float(rng.choice([2500, 4000, 6000]))
     state = AccountState(
@@ -358,7 +407,7 @@ def _generate_customer_events(
             state = apply_event(state, "bank_fee_penalty", fee_amount)
             events.append(_make_event(customer_id, next_timestamp(), "bank_fee_penalty", fee_amount, "debit", "fees", before, state))
 
-    return sorted(events, key=lambda item: item.event_timestamp)
+    return sorted(events, key=lambda item: item.event_timestamp), profile
 
 
 def _apply_forward_distress_labels(frame: pd.DataFrame) -> pd.DataFrame:
@@ -397,9 +446,18 @@ def generate_synthetic_dataset(config: DataConfig) -> Tuple[pd.DataFrame, pd.Dat
     for idx in range(config.num_customers):
         archetype = config.archetypes[idx % len(config.archetypes)]
         customer_id = f"CUST_{idx:04d}"
-        events = _generate_customer_events(customer_id, archetype, start_date, config, rng)
+        events, profile = _generate_customer_events(customer_id, archetype, start_date, config, rng)
         rows.extend(event.to_dict() for event in events)
-        customers.append({"customer_id": customer_id, "archetype": archetype})
+        customers.append(
+            {
+                "customer_id": customer_id,
+                "archetype": archetype,
+                "income_band": profile["income_band"],
+                "employment_type": profile["employment_type"],
+                "region": profile["region"],
+                "risk_segment": profile["risk_segment"],
+            }
+        )
 
     events_df = pd.DataFrame(rows)
     events_df = _apply_forward_distress_labels(events_df)

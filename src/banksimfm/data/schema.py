@@ -28,6 +28,14 @@ EVENT_TYPES = [
     "overdraft_event",
 ]
 
+INTERVENTION_TYPES = [
+    "none",
+    "reminder",
+    "due_date_shift_7d",
+    "temporary_overdraft_buffer",
+    "installment_restructure",
+]
+
 
 @dataclass
 class CustomerEvent:

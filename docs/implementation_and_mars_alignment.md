@@ -100,9 +100,9 @@ The current implementation aligns well with MarS in these ways:
 
 The current project is still a simplified academic version of the full MarS vision:
 
-- future-event generation is still heuristic, not fully model-decoded
-- intervention effects are rule-based, not learned by the transformer
-- the transformer predicts next event and distress, but not the full richer set of generative targets described in the requirements
+- intervention effects remain directional within a synthetic simulator rather than causal proof for real customers
+- the deterministic account-state engine still acts as the financial source of truth, so generation is constrained rather than free-form
+- the synthetic world is much smaller and more structured than the large-scale market environment imagined by MarS
 - the simulator is customer-level and lightweight, not a large-scale world model
 
 So the project is strongly inspired by MarS, but it is not a one-to-one reproduction. It is an adaptation of the MarS philosophy to a new financial domain.
@@ -124,8 +124,9 @@ The system can be understood as the following pipeline:
 1. Generate synthetic customer-event histories.
 2. Convert those histories into model-ready windows.
 3. Train sequence models on the windows.
-4. Use trained models plus heuristic logic to score and forecast.
-5. Present results in a Streamlit dashboard.
+4. Use trained models to score customer distress and decode future trajectories.
+5. Use learned intervention-conditioned decoding plus the state engine to simulate scenarios.
+6. Present results in a Streamlit dashboard.
 
 ### Architecture Flow
 
@@ -136,13 +137,15 @@ Synthetic Event Generator
         ->
 Chronological Event Table
         ->
+Customer Metadata And Segment Labels
+        ->
 Feature Encoding + Bucketing + Customer Split
         ->
-Customer History Windows
+Customer History Windows + Intervention-Augmented Windows
         ->
 Transformer + LSTM Training
         ->
-Saved Artifacts and Metrics
+Saved Artifacts, Metrics, Fairness, And Simulation Summaries
         ->
 Inference APIs
         ->
@@ -245,7 +248,9 @@ For each customer history window:
 
 - input = past ordered events up to time `t`
 - target 1 = next event type
-- target 2 = whether distress occurs within 30 days
+- target 2 = next amount bucket
+- target 3 = next balance-delta bucket
+- target 4 = whether distress occurs within 30 days
 
 This supports the idea that one shared sequence backbone can help with both forecasting and risk detection.
 
@@ -264,6 +269,7 @@ The transformer uses embeddings for:
 - balance bucket
 - utilization bucket
 - time-gap bucket
+- intervention token
 - position
 
 These embeddings are summed to form the event representation at each time step.
@@ -273,11 +279,13 @@ These embeddings are summed to form the event representation at each time step.
 The current transformer produces:
 
 - next-event logits
+- next-amount-bucket logits
+- next-balance-delta-bucket logits
 - distress logit
 
 So it is doing two jobs:
 
-- sequence understanding for what event comes next
+- sequence understanding for what event, amount regime, and balance movement come next
 - classification for whether the customer is at short-term distress risk
 
 ### Why This Matters
@@ -312,7 +320,10 @@ Two models are trained:
 Current training includes:
 
 - cross-entropy loss for next-event prediction in the transformer
+- cross-entropy loss for next amount-bucket prediction in the transformer
+- cross-entropy loss for next balance-delta-bucket prediction in the transformer
 - binary cross-entropy loss for 30-day distress prediction
+- intervention-conditioned augmented training windows for the transformer
 
 Class imbalance is handled using a positive class weight for distress prediction.
 
@@ -339,6 +350,19 @@ The current saved metrics include:
 
 These are stored in [artifacts/metrics.json](/Users/abhishek/Desktop/Projects/regtech/artifacts/metrics.json).
 
+Additional evaluation artifacts now include:
+
+- [artifacts/simulation_metrics.json](/Users/abhishek/Desktop/Projects/regtech/artifacts/simulation_metrics.json)
+- [artifacts/fairness_metrics.json](/Users/abhishek/Desktop/Projects/regtech/artifacts/fairness_metrics.json)
+
+These cover:
+
+- early-warning behavior
+- simulation realism
+- repeated-run stability
+- intervention usefulness
+- subgroup fairness breakdowns
+
 ## 11. Inference And Public APIs
 
 The public APIs are implemented in [src/banksimfm/inference.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/inference.py).
@@ -361,8 +385,8 @@ If trained models are unavailable, it falls back to a heuristic probability usin
 This function:
 
 - accepts a customer history
-- converts recent history into an account state
-- simulates future steps
+- decodes future steps with the transformer when compatible trained artifacts exist
+- keeps the account-state engine in the loop for financial consistency
 - returns projected events
 - returns projected balance path
 - returns projected utilization path
@@ -370,7 +394,7 @@ This function:
 
 Important note:
 
-The current forecast is rule-based, not fully transformer-decoded. This is good enough for a prototype demo, but it should be described honestly in the report.
+The current forecast is transformer-decoded in the main path and falls back to a heuristic path only if trained artifacts are missing or incompatible.
 
 ## 11.3 `simulate_intervention`
 
@@ -379,6 +403,7 @@ This function:
 - scores the baseline scenario
 - forecasts the baseline path
 - applies an intervention policy to the account state
+- reforecasts the adjusted scenario with the matching intervention token
 - rescoring and reforecasting the adjusted scenario
 - compares baseline and intervention outcomes
 
@@ -389,7 +414,7 @@ Supported interventions are:
 - `temporary_overdraft_buffer`
 - `installment_restructure`
 
-This gives the project a practical what-if capability even though the intervention effect is still policy-driven rather than learned.
+This gives the project a practical what-if capability with learned intervention-conditioned generation inside the synthetic environment, while still being explicit that the result is not causal proof.
 
 ## 12. Deterministic Account-State Engine
 
@@ -436,6 +461,7 @@ The Overview page currently shows:
 - distress rate by archetype
 - customer distress distribution
 - holdout metrics
+- portfolio stress monitoring by segment and intervention
 - representative customers
 
 ## 13.2 Customer Explorer
@@ -443,6 +469,7 @@ The Overview page currently shows:
 The Customer Explorer allows the user to:
 
 - choose a customer
+- review explicit balance and utilization charts
 - review the event timeline
 - inspect recent history
 - view 30-day distress probability
@@ -458,7 +485,20 @@ The What-If Simulator allows the user to:
 - compare baseline and intervention risk
 - compare projected balance paths
 - compare projected utilization paths
+- inspect top forecasted negative events
+- inspect scenario-level metrics
 - inspect scenario notes and projected events
+
+## 13.4 Model And Governance
+
+The Model And Governance page shows:
+
+- transformer-versus-LSTM architecture summary
+- rationale for using the LSTM as the primary scorer and the transformer as the forecaster
+- synthetic-data disclaimer
+- privacy, fairness, explainability, reliability, and operational-risk notes
+- fairness tables by income band, employment type, region, risk segment, and archetype
+- simulation-quality and early-warning summaries from saved artifacts
 
 ## 14. Outcomes We Can Honestly Claim
 
@@ -477,8 +517,7 @@ Based on the current workspace, we can confidently say the project already demon
 
 Some parts are implemented in a simplified way and should be described carefully:
 
-- forecasting is heuristic rather than fully learned generation
-- intervention impact is rule-based rather than causal proof
+- intervention impact is directional within a synthetic simulator rather than causal proof
 - synthetic data is realistic enough for demo use, but not a substitute for real bank history
 - current explainability is heuristic and timeline-based rather than a full model-interpretability framework
 
@@ -509,7 +548,7 @@ The main contribution of the project is showing that the MarS idea of sequence-b
 
 If someone asks what would be the next improvement beyond the current prototype, the most accurate answer is:
 
-1. replace heuristic forecasting with true transformer-driven autoregressive generation
-2. learn intervention-conditioned simulation directly in the model
-3. add richer fairness and reliability evaluation
-4. expand dashboard coverage for governance and portfolio-level analytics
+1. run repeated-seed experiments and compare stability across training runs
+2. improve the realism and calibration of synthetic intervention outcomes
+3. expand economic-value measurement for collections, retention, and operations use cases
+4. validate the dashboard and model behavior with a cleaner final report and presentation narrative
