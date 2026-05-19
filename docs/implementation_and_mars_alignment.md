@@ -234,6 +234,7 @@ It:
 - sorts events chronologically
 - encodes event types as IDs
 - buckets amount, balance, utilization, and time gaps
+- tracks outstanding due amount as an internal state feature
 - computes simple dense features
 - splits customers into train, validation, and test sets
 - builds trailing history windows for training
@@ -254,6 +255,8 @@ For each customer history window:
 
 This supports the idea that one shared sequence backbone can help with both forecasting and risk detection.
 
+The current pipeline also creates intervention-augmented windows that roll forward for a few synthetic continuation steps rather than only a single counterfactual next step. This gives the transformer a stronger signal that intervention tokens should alter the future path, not just the immediate label.
+
 ## 9. Models
 
 ## 9.1 Transformer Model
@@ -268,6 +271,7 @@ The transformer uses embeddings for:
 - amount bucket
 - balance bucket
 - utilization bucket
+- due-amount bucket
 - time-gap bucket
 - intervention token
 - position
@@ -326,6 +330,13 @@ Current training includes:
 - intervention-conditioned augmented training windows for the transformer
 
 Class imbalance is handled using a positive class weight for distress prediction.
+
+The latest tuning pass also:
+
+- lowers transformer learning rate relative to the LSTM
+- increases training patience and epoch budget modestly
+- increases intervention augmentation frequency
+- increases the relative weight of the transformer distress loss so the classification head is less likely to collapse into all-negative predictions
 
 ## 10.3 Validation And Testing
 
@@ -387,6 +398,7 @@ This function:
 - accepts a customer history
 - decodes future steps with the transformer when compatible trained artifacts exist
 - keeps the account-state engine in the loop for financial consistency
+- uses explicit intervention-adjusted state when available so policy effects such as due-date changes and restructuring are not reconstructed away from history
 - returns projected events
 - returns projected balance path
 - returns projected utilization path
@@ -403,6 +415,7 @@ This function:
 - scores the baseline scenario
 - forecasts the baseline path
 - applies an intervention policy to the account state
+- carries the adjusted state directly into decoder startup
 - reforecasts the adjusted scenario with the matching intervention token
 - rescoring and reforecasting the adjusted scenario
 - compares baseline and intervention outcomes
@@ -520,6 +533,7 @@ Some parts are implemented in a simplified way and should be described carefully
 - intervention impact is directional within a synthetic simulator rather than causal proof
 - synthetic data is realistic enough for demo use, but not a substitute for real bank history
 - current explainability is heuristic and timeline-based rather than a full model-interpretability framework
+- retraining is required after internal feature-shape changes because saved checkpoints encode the old transformer/LSTM input shapes
 
 Being transparent about this will make the final report stronger, not weaker.
 

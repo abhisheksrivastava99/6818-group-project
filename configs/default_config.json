@@ -13,10 +13,13 @@
     "dropout": 0.1,
     "batch_size": 32,
     "learning_rate": 0.001,
-    "max_epochs": 8,
-    "patience": 4,
+    "transformer_learning_rate": 0.0005,
+    "max_epochs": 12,
+    "patience": 5,
     "forecast_steps": 12,
-    "intervention_augmentation_rate": 0.15
+    "intervention_augmentation_rate": 0.30,
+    "intervention_augmentation_steps": 3,
+    "distress_loss_weight": 1.5
   },
   "app": {
     "default_horizon_days": 30,

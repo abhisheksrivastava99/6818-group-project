@@ -40,6 +40,20 @@
     "18": "overdraft_event",
     "0": "PAD"
   },
+  "intervention_type_to_id": {
+    "none": 0,
+    "reminder": 1,
+    "due_date_shift_7d": 2,
+    "temporary_overdraft_buffer": 3,
+    "installment_restructure": 4
+  },
+  "intervention_id_to_type": {
+    "0": "none",
+    "1": "reminder",
+    "2": "due_date_shift_7d",
+    "3": "temporary_overdraft_buffer",
+    "4": "installment_restructure"
+  },
   "splits": {
     "train": [
       "CUST_0000",

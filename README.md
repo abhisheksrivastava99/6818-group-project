@@ -43,12 +43,13 @@ regtech/
 - Canonical event schema with chronological account-state consistency
 - Customer-level train/validation/test splits
 - Shared history windowing for both sequence models
+- Internal due-amount state tracking to preserve repayment and restructuring context
 - Transformer training for:
   - next-event prediction
   - next amount-bucket prediction
   - next balance-delta-bucket prediction
   - distress classification
-- Intervention-conditioned transformer forecasting
+- Intervention-conditioned transformer forecasting with explicit state handoff
 - LSTM baseline for primary 30-day distress prediction
 - Public APIs:
   - `score_customer(history, horizon_days=30)`
@@ -115,10 +116,21 @@ The training pipeline:
 
 - builds synthetic datasets
 - constructs customer-history windows
+- uses multi-step intervention-augmented continuations for transformer conditioning
 - trains the transformer and LSTM with verbose per-epoch logging
 - evaluates both models on validation and test splits
 - saves model checkpoints and metric summaries
 - computes fairness, early-warning, simulation-realism, stability, and intervention-usefulness summaries
+
+Current tuned defaults include:
+
+- transformer learning rate: `5e-4`
+- LSTM learning rate: `1e-3`
+- max epochs: `12`
+- patience: `5`
+- intervention augmentation rate: `0.30`
+- intervention augmentation steps: `3`
+- transformer distress loss weight: `1.5`
 
 ## Streamlit App
 
@@ -136,6 +148,7 @@ The app supports:
 - top forecasted negative-event summaries and scenario metrics
 - portfolio stress monitoring by archetype, income band, employment type, region, and risk segment
 - model and governance documentation with fairness summaries
+- intervention scenarios that preserve adjusted account state through decoding instead of only swapping an intervention token
 
 ## Apple Silicon Note
 
@@ -185,6 +198,7 @@ The current tests cover:
 
 - Forecasting is transformer-decoded when compatible trained artifacts exist, but inference still retains heuristic fallbacks if artifacts are missing or stale
 - Intervention conditioning is learned directionally inside the synthetic environment, not a causal estimate of real-world treatment effect
+- Transformer checkpoint compatibility changes when internal sequence features change, so a fresh `train.py` run is required after major model/pipeline updates
 - The prototype is optimized for coursework and demos, not production deployment
 - Full training speed depends on local PyTorch device support
 - Final report, slide deck, and business-value write-up still need to be completed outside the codebase

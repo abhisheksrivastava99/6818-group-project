@@ -24,6 +24,7 @@ BALANCE_BINS = np.array([-10000, 0, 250, 750, 1500, 3000, 5000, 10000, 30000], d
 UTIL_BINS = np.array([0.0, 0.1, 0.3, 0.5, 0.7, 0.85, 0.95, 1.1, 2.0], dtype=float)
 GAP_BINS = np.array([0, 1, 2, 4, 7, 14, 30, 60], dtype=float)
 DELTA_BINS = np.array([-10000, -2000, -1000, -500, -200, -50, 0, 50, 200, 500, 1000, 2000, 10000], dtype=float)
+DUE_BINS = np.array([0, 25, 75, 150, 300, 600, 1200, 3000, 10000, 30000], dtype=float)
 
 DISTRESS_EVENT_TYPES = {"loan_emi_missed", "failed_debit", "overdraft_event"}
 
@@ -66,6 +67,26 @@ def _bucketize_scalar(value: float, bins: np.ndarray) -> int:
     return int(np.digitize([float(value)], bins[1:], right=False)[0])
 
 
+def compute_due_amount_feature(frame: pd.DataFrame) -> pd.Series:
+    due_amounts = np.zeros(len(frame), dtype=float)
+    outstanding = 0.0
+    current_customer = None
+    for idx, row in enumerate(frame.itertuples(index=False)):
+        customer_id = getattr(row, "customer_id")
+        if customer_id != current_customer:
+            current_customer = customer_id
+            outstanding = 0.0
+
+        event_type = getattr(row, "event_type")
+        amount = float(getattr(row, "amount"))
+        if event_type in {"credit_card_payment_due", "loan_emi_due", "loan_emi_missed"}:
+            outstanding += max(0.0, amount)
+        elif event_type in {"credit_card_payment_made", "loan_emi_paid"}:
+            outstanding = max(0.0, outstanding - max(0.0, amount))
+        due_amounts[idx] = outstanding
+    return pd.Series(due_amounts, index=frame.index, dtype=float)
+
+
 def _prepare_features(events: pd.DataFrame, encoders: Encoders) -> pd.DataFrame:
     frame = events.copy()
     frame["event_timestamp"] = pd.to_datetime(frame["event_timestamp"])
@@ -81,6 +102,8 @@ def _prepare_features(events: pd.DataFrame, encoders: Encoders) -> pd.DataFrame:
     frame["direction_flag"] = frame["amount_direction"].map({"credit": 1.0, "debit": -1.0}).fillna(0.0)
     frame["miss_flag"] = frame["event_type"].isin(["loan_emi_missed", "failed_debit"]).astype(int)
     frame["overdraft_flag"] = frame["event_type"].eq("overdraft_event").astype(int)
+    frame["due_amount_feature"] = compute_due_amount_feature(frame)
+    frame["due_bucket"] = _bucketize(frame["due_amount_feature"], DUE_BINS)
     frame["intervention_id"] = 0
     return frame
 
@@ -115,6 +138,9 @@ def _history_to_state_from_frame(history: pd.DataFrame) -> AccountState:
     failed_debits = int(history["event_type"].eq("failed_debit").sum())
     overdrafts = int(history["event_type"].eq("overdraft_event").sum())
     low_balance_streak = int((history["balance_after"] < 200).tail(5).sum())
+    due_amount = float(last_row.get("due_amount_feature", np.nan))
+    if np.isnan(due_amount):
+        due_amount = float(compute_due_amount_feature(history).iloc[-1]) if len(history) else 0.0
     return AccountState(
         balance=float(last_row["balance_after"]),
         credit_limit=float(last_row["credit_limit"]),
@@ -123,7 +149,7 @@ def _history_to_state_from_frame(history: pd.DataFrame) -> AccountState:
         overdraft_events=overdrafts,
         failed_debits=failed_debits,
         low_balance_streak=low_balance_streak,
-        due_amount=float(max(0.0, history["amount"].tail(3).mean())),
+        due_amount=due_amount,
         due_in_days=int(last_row.get("days_to_next_due", 7) or 7),
         last_income_amount=float(history.loc[history["event_type"] == "salary_credit", "amount"].tail(1).iloc[0] if not history.loc[history["event_type"] == "salary_credit"].empty else 0.0),
         intervention_flag=str(last_row.get("intervention_flag", "none")),
@@ -136,7 +162,14 @@ def _counterfactual_next_event(
     rng: np.random.Generator,
 ) -> tuple[str, float, str]:
     if state.due_amount > 0 and state.due_in_days <= 2:
-        coverage_factor = 0.72 if intervention_type != "none" else 0.88
+        if intervention_type == "reminder":
+            coverage_factor = 0.60
+        elif intervention_type == "installment_restructure":
+            coverage_factor = 0.58
+        elif intervention_type == "temporary_overdraft_buffer":
+            coverage_factor = 0.64
+        else:
+            coverage_factor = 0.82 if intervention_type != "none" else 0.88
         if state.balance > state.due_amount * coverage_factor:
             return "loan_emi_paid", min(max(40.0, state.due_amount * 0.8), max(40.0, state.balance * 0.18)), "loan"
         return "loan_emi_missed", max(40.0, state.due_amount), "loan"
@@ -180,10 +213,19 @@ def _days_to_first_distress(customer_frame: pd.DataFrame, history_end_idx: int) 
 class CustomerWindowDataset(Dataset):
     """Shared customer-history windows for both sequence models."""
 
-    def __init__(self, frame: pd.DataFrame, context_length: int, encoders: Encoders, intervention_aug_rate: float = 0.15, seed: int = 7):
+    def __init__(
+        self,
+        frame: pd.DataFrame,
+        context_length: int,
+        encoders: Encoders,
+        intervention_aug_rate: float = 0.15,
+        intervention_aug_steps: int = 1,
+        seed: int = 7,
+    ):
         self.context_length = context_length
         self.encoders = encoders
         self.intervention_aug_rate = intervention_aug_rate
+        self.intervention_aug_steps = intervention_aug_steps
         self.rng = np.random.default_rng(seed)
         self.samples = self._build_samples(frame)
 
@@ -193,6 +235,7 @@ class CustomerWindowDataset(Dataset):
             "amount_bucket",
             "balance_bucket",
             "util_bucket",
+            "due_bucket",
             "time_gap_bucket",
             "intervention_id",
         ]
@@ -200,6 +243,7 @@ class CustomerWindowDataset(Dataset):
             "amount",
             "balance_after",
             "credit_utilization",
+            "due_amount_feature",
             "days_to_next_due",
             "direction_flag",
             "miss_flag",
@@ -207,6 +251,14 @@ class CustomerWindowDataset(Dataset):
         ]
 
         history = history.copy()
+        history["event_timestamp"] = pd.to_datetime(history["event_timestamp"])
+        history = history.sort_values("event_timestamp").tail(self.context_length).reset_index(drop=True)
+        if "due_amount_feature" not in history.columns:
+            history["due_amount_feature"] = compute_due_amount_feature(history)
+        elif history["due_amount_feature"].isna().any():
+            history["due_amount_feature"] = history["due_amount_feature"].fillna(compute_due_amount_feature(history))
+        if "due_bucket" not in history.columns:
+            history["due_bucket"] = history["due_amount_feature"].apply(lambda x: _bucketize_scalar(x, DUE_BINS))
         history["intervention_id"] = self.encoders.intervention_type_to_id[intervention_type]
         seq_features = torch.zeros((self.context_length, len(feature_cols)), dtype=torch.long)
         dense_features = torch.zeros((self.context_length, len(numeric_cols)), dtype=torch.float32)
@@ -226,10 +278,14 @@ class CustomerWindowDataset(Dataset):
         target_idx: int,
         intervention_type: str = "none",
         lstm_weight: float = 1.0,
+        days_to_first_distress_override: float | None = None,
     ) -> Dict[str, object]:
         seq_features, dense_features, mask = self._history_tensors(history, intervention_type)
         balance_delta = float(target["balance_after"] - history.iloc[-1]["balance_after"])
-        days_to_first_distress = _days_to_first_distress(customer_frame, target_idx - 1)
+        if days_to_first_distress_override is None:
+            days_to_first_distress = _days_to_first_distress(customer_frame, target_idx - 1)
+        else:
+            days_to_first_distress = float(days_to_first_distress_override)
         return {
             "seq_tokens": seq_features,
             "dense_features": dense_features,
@@ -245,7 +301,47 @@ class CustomerWindowDataset(Dataset):
             "days_to_first_distress": torch.tensor(days_to_first_distress, dtype=torch.float32),
         }
 
-    def _counterfactual_sample(self, history: pd.DataFrame, customer_frame: pd.DataFrame, target_idx: int) -> Dict[str, object]:
+    def _append_generated_history_row(
+        self,
+        history: pd.DataFrame,
+        state: AccountState,
+        event_type: str,
+        amount: float,
+        category: str,
+        event_timestamp: pd.Timestamp,
+        balance_before: float,
+        intervention_type: str,
+    ) -> pd.DataFrame:
+        history_row = {
+            "customer_id": history.iloc[-1]["customer_id"],
+            "event_timestamp": event_timestamp,
+            "event_type": event_type,
+            "event_type_id": self.encoders.event_type_to_id[event_type],
+            "amount": amount,
+            "amount_bucket": _bucketize_scalar(amount, AMOUNT_BINS),
+            "amount_direction": "credit" if event_type in {"salary_credit", "transfer_in"} else "debit",
+            "category": category,
+            "balance_before": balance_before,
+            "balance_after": state.balance,
+            "balance_bucket": _bucketize_scalar(state.balance, BALANCE_BINS),
+            "credit_limit": history.iloc[-1]["credit_limit"],
+            "credit_utilization": state.credit_utilization,
+            "util_bucket": _bucketize_scalar(state.credit_utilization, UTIL_BINS),
+            "due_amount_feature": state.due_amount,
+            "due_bucket": _bucketize_scalar(state.due_amount, DUE_BINS),
+            "days_to_next_due": state.due_in_days,
+            "time_gap_days": 1.0,
+            "time_gap_bucket": _bucketize_scalar(1.0, GAP_BINS),
+            "direction_flag": 1.0 if event_type in {"salary_credit", "transfer_in"} else -1.0,
+            "miss_flag": int(event_type in {"loan_emi_missed", "failed_debit"}),
+            "overdraft_flag": int(event_type == "overdraft_event"),
+            "intervention_flag": intervention_type,
+            "intervention_id": self.encoders.intervention_type_to_id[intervention_type],
+            "distress_label_30d": int(event_type in DISTRESS_EVENT_TYPES),
+        }
+        return pd.concat([history, pd.DataFrame([history_row])], ignore_index=True)
+
+    def _counterfactual_samples(self, history: pd.DataFrame, customer_frame: pd.DataFrame, target_idx: int) -> List[Dict[str, object]]:
         intervention_type = str(self.rng.choice(INTERVENTION_TYPES[1:]))
         current_state = _history_to_state_from_frame(history)
         adjusted_state = apply_intervention_policy(current_state, intervention_type)
@@ -254,29 +350,60 @@ class CustomerWindowDataset(Dataset):
         last_idx = history_cf.index[-1]
         history_cf.loc[last_idx, "balance_after"] = adjusted_state.balance
         history_cf.loc[last_idx, "credit_utilization"] = adjusted_state.credit_utilization
+        history_cf.loc[last_idx, "due_amount_feature"] = adjusted_state.due_amount
         history_cf.loc[last_idx, "days_to_next_due"] = adjusted_state.due_in_days
         history_cf.loc[last_idx, "intervention_flag"] = intervention_type
         history_cf.loc[last_idx, "balance_bucket"] = _bucketize_scalar(adjusted_state.balance, BALANCE_BINS)
         history_cf.loc[last_idx, "util_bucket"] = _bucketize_scalar(adjusted_state.credit_utilization, UTIL_BINS)
+        history_cf.loc[last_idx, "due_bucket"] = _bucketize_scalar(adjusted_state.due_amount, DUE_BINS)
 
-        event_type, amount, category = _counterfactual_next_event(adjusted_state, intervention_type, self.rng)
-        next_state = apply_event(adjusted_state, event_type, amount)
-        target = pd.Series(
-            {
-                "customer_id": history.iloc[-1]["customer_id"],
-                "event_type_id": self.encoders.event_type_to_id[event_type],
-                "amount_bucket": _bucketize_scalar(amount, AMOUNT_BINS),
-                "balance_after": next_state.balance,
-                "distress_label_30d": int(
-                    event_type in DISTRESS_EVENT_TYPES
-                    or next_state.balance < 0
-                    or next_state.credit_utilization > 0.95
-                    or next_state.failed_debits > adjusted_state.failed_debits
-                    or next_state.missed_payments > adjusted_state.missed_payments
-                ),
-            }
-        )
-        return self._base_sample(customer_frame, history_cf, target, target_idx, intervention_type=intervention_type, lstm_weight=0.0)
+        samples: List[Dict[str, object]] = []
+        rolling_history = history_cf.reset_index(drop=True)
+        rolling_state = adjusted_state
+        event_ts = pd.to_datetime(rolling_history.iloc[-1]["event_timestamp"])
+        for step in range(self.intervention_aug_steps):
+            event_type, amount, category = _counterfactual_next_event(rolling_state, intervention_type, self.rng)
+            next_state = apply_event(rolling_state, event_type, amount)
+            target = pd.Series(
+                {
+                    "customer_id": history.iloc[-1]["customer_id"],
+                    "event_type_id": self.encoders.event_type_to_id[event_type],
+                    "amount_bucket": _bucketize_scalar(amount, AMOUNT_BINS),
+                    "balance_after": next_state.balance,
+                    "distress_label_30d": int(
+                        event_type in DISTRESS_EVENT_TYPES
+                        or next_state.balance < 0
+                        or next_state.credit_utilization > 0.95
+                        or next_state.failed_debits > rolling_state.failed_debits
+                        or next_state.missed_payments > rolling_state.missed_payments
+                    ),
+                }
+            )
+            samples.append(
+                self._base_sample(
+                    customer_frame,
+                    rolling_history,
+                    target,
+                    target_idx,
+                    intervention_type=intervention_type,
+                    lstm_weight=0.0,
+                    days_to_first_distress_override=-1.0,
+                )
+            )
+            event_ts = event_ts + pd.Timedelta(days=1)
+            balance_before = rolling_state.balance
+            rolling_history = self._append_generated_history_row(
+                rolling_history,
+                next_state,
+                event_type,
+                amount,
+                category,
+                event_ts,
+                balance_before,
+                intervention_type,
+            )
+            rolling_state = next_state
+        return samples
 
     def _build_samples(self, frame: pd.DataFrame) -> List[Dict[str, object]]:
         samples: List[Dict[str, object]] = []
@@ -287,7 +414,7 @@ class CustomerWindowDataset(Dataset):
                 target = customer_frame.iloc[idx]
                 samples.append(self._base_sample(customer_frame, history, target, idx))
                 if len(history) >= 5 and self.rng.random() < self.intervention_aug_rate:
-                    samples.append(self._counterfactual_sample(history, customer_frame, idx))
+                    samples.extend(self._counterfactual_samples(history, customer_frame, idx))
         return samples
 
     def __len__(self) -> int:
@@ -309,12 +436,14 @@ def build_datasets(config: ProjectConfig | None = None) -> Tuple[DemoBundle, Dic
         for name, customer_ids in splits.items()
     }
     intervention_aug_rate = getattr(config.model, "intervention_augmentation_rate", 0.15)
+    intervention_aug_steps = getattr(config.model, "intervention_augmentation_steps", 1)
     datasets = {
         name: CustomerWindowDataset(
             split_frame,
             context_length=config.model.context_length,
             encoders=encoders,
             intervention_aug_rate=intervention_aug_rate if name == "train" else 0.0,
+            intervention_aug_steps=intervention_aug_steps if name == "train" else 1,
             seed=config.data.seed,
         )
         for name, split_frame in split_frames.items()

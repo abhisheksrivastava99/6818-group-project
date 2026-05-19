@@ -12,14 +12,25 @@ import pandas as pd
 import torch
 
 from banksimfm.config import ProjectConfig, default_config
-from banksimfm.data.pipeline import AMOUNT_BINS, BALANCE_BINS, DELTA_BINS, GAP_BINS, UTIL_BINS, DemoBundle, build_encoders, load_or_create_demo_bundle
+from banksimfm.data.pipeline import (
+    AMOUNT_BINS,
+    BALANCE_BINS,
+    DELTA_BINS,
+    DUE_BINS,
+    GAP_BINS,
+    UTIL_BINS,
+    DemoBundle,
+    build_encoders,
+    compute_due_amount_feature,
+    load_or_create_demo_bundle,
+)
 from banksimfm.data.schema import INTERVENTION_TYPES
 from banksimfm.models.baseline import LSTMDistressModel
 from banksimfm.models.training import train_models
 from banksimfm.models.transformer import CausalEventTransformer
 from banksimfm.runtime import resolve_device
 from banksimfm.sim.engine import apply_intervention_policy, state_risk_factors
-from banksimfm.sim.scenario import decode_forecast, history_to_state
+from banksimfm.sim.scenario import apply_state_to_history, decode_forecast, history_to_state
 from banksimfm.types import ForecastResult, ScoreResult, SimulationResult, SimulationSide
 
 
@@ -58,6 +69,11 @@ def _prepare_history_window(
     frame["amount_bucket"] = frame["amount"].apply(lambda x: _bucketize_scalar(x, AMOUNT_BINS))
     frame["balance_bucket"] = frame["balance_after"].apply(lambda x: _bucketize_scalar(x, BALANCE_BINS))
     frame["util_bucket"] = frame["credit_utilization"].apply(lambda x: _bucketize_scalar(x, UTIL_BINS))
+    if "due_amount_feature" not in frame.columns:
+        frame["due_amount_feature"] = compute_due_amount_feature(frame)
+    elif frame["due_amount_feature"].isna().any():
+        frame["due_amount_feature"] = frame["due_amount_feature"].fillna(compute_due_amount_feature(frame))
+    frame["due_bucket"] = frame["due_amount_feature"].apply(lambda x: _bucketize_scalar(x, DUE_BINS))
     frame["time_gap_days"] = frame["event_timestamp"].diff().dt.total_seconds().fillna(0) / 86400
     frame["time_gap_bucket"] = frame["time_gap_days"].apply(lambda x: _bucketize_scalar(x, GAP_BINS))
     frame["direction_flag"] = [
@@ -68,12 +84,12 @@ def _prepare_history_window(
     frame["overdraft_flag"] = frame["event_type"].eq("overdraft_event").astype(float)
     frame["intervention_id"] = encoders.intervention_type_to_id[intervention_type]
 
-    seq_tokens = torch.zeros((1, context_length, 6), dtype=torch.long)
-    dense_features = torch.zeros((1, context_length, 7), dtype=torch.float32)
+    seq_tokens = torch.zeros((1, context_length, 7), dtype=torch.long)
+    dense_features = torch.zeros((1, context_length, 8), dtype=torch.float32)
     mask = torch.zeros((1, context_length), dtype=torch.bool)
     offset = context_length - len(frame)
     seq_tokens[0, offset:, :] = torch.tensor(
-        frame[["event_type_id", "amount_bucket", "balance_bucket", "util_bucket", "time_gap_bucket", "intervention_id"]].to_numpy(),
+        frame[["event_type_id", "amount_bucket", "balance_bucket", "util_bucket", "due_bucket", "time_gap_bucket", "intervention_id"]].to_numpy(),
         dtype=torch.long,
     )
     dense_features[0, offset:, :] = torch.tensor(
@@ -82,6 +98,7 @@ def _prepare_history_window(
                 "amount",
                 "balance_after",
                 "credit_utilization",
+                "due_amount_feature",
                 "days_to_next_due",
                 "direction_flag",
                 "miss_flag",
@@ -126,6 +143,7 @@ def _load_trained_models() -> Optional[Dict[str, object]]:
             "amount": len(AMOUNT_BINS),
             "balance": len(BALANCE_BINS),
             "util": len(UTIL_BINS),
+            "due": len(DUE_BINS),
             "gap": len(GAP_BINS),
             "delta": len(DELTA_BINS),
             "intervention": len(encoders.intervention_type_to_id),
@@ -136,7 +154,7 @@ def _load_trained_models() -> Optional[Dict[str, object]]:
         dropout=config.model.dropout,
     ).to(device)
     lstm = LSTMDistressModel(
-        input_size=7,
+        input_size=8,
         hidden_size=max(64, config.model.hidden_size // 2),
         dropout=config.model.dropout,
     ).to(device)
@@ -247,6 +265,7 @@ def _heuristic_forecast(history_df: pd.DataFrame, horizon_days: int) -> Dict[str
                 "balance_after": round(state.balance, 2),
                 "credit_limit": float(history_df.iloc[-1].get("credit_limit", 0.0)),
                 "credit_utilization": round(state.credit_utilization, 4),
+                "due_amount_feature": round(state.due_amount, 2),
                 "days_to_next_due": state.due_in_days,
                 "intervention_flag": "none",
             }
@@ -305,12 +324,7 @@ def simulate_intervention(
 
     state = history_to_state(history_df)
     adjusted_state = apply_intervention_policy(state, intervention_type)
-    last_row = history_df.iloc[-1].copy()
-    last_row["balance_after"] = adjusted_state.balance
-    last_row["credit_utilization"] = adjusted_state.credit_utilization
-    last_row["days_to_next_due"] = adjusted_state.due_in_days
-    last_row["intervention_flag"] = intervention_type
-    adjusted_history = pd.concat([history_df.iloc[:-1], pd.DataFrame([last_row])], ignore_index=True)
+    adjusted_history = apply_state_to_history(history_df, adjusted_state, intervention_type)
 
     if loaded is None:
         intervention_decoded = _heuristic_forecast(adjusted_history, horizon_days)
@@ -323,6 +337,7 @@ def simulate_intervention(
             device=loaded["device"],
             context_length=default_config().model.context_length,
             strategy="greedy",
+            starting_state=adjusted_state,
         )
     intervention_forecast = ForecastResult(
         projected_events=intervention_decoded["projected_events"],

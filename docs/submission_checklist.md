@@ -39,13 +39,14 @@ This checklist maps the current workspace against the project requirements in [r
 - [x] Early stopping and checkpoint saving are implemented in [src/banksimfm/models/training.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/models/training.py).
 - [x] Holdout metrics are saved to [artifacts/metrics.json](/Users/abhishek/Desktop/Projects/regtech/artifacts/metrics.json).
 - [x] Training entrypoint exists in [train.py](/Users/abhishek/Desktop/Projects/regtech/train.py).
+- [x] Intervention-aware internal due-state features and multi-step augmentation are implemented in [src/banksimfm/data/pipeline.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/data/pipeline.py).
 
 ### Still Needed In Report Or Slides
 
 - [ ] Explain the transformer architecture in a presentation-friendly diagram.
 - [ ] Explain the LSTM baseline and why it is the benchmark.
 - [ ] Explain the training objective, batch construction, and evaluation approach in plain language.
-- [ ] State infrastructure assumptions such as CPU acceptable, GPU preferred, and Apple Silicon support.
+- [ ] State infrastructure assumptions such as CPU acceptable, GPU preferred, Apple Silicon support, and the need to retrain after model-shape changes.
 
 ### Still Needed In Code For Stronger Alignment
 
@@ -63,6 +64,7 @@ This checklist maps the current workspace against the project requirements in [r
 - [x] `forecast_customer(history, horizon_days=30)` exists in [src/banksimfm/inference.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/inference.py).
 - [x] `simulate_intervention(history, intervention_type, horizon_days=30)` exists in [src/banksimfm/inference.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/inference.py).
 - [x] Deterministic account-state engine exists in [src/banksimfm/sim/engine.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/sim/engine.py).
+- [x] Intervention-adjusted state is handed directly into forecasting/simulation instead of relying only on token changes.
 
 ### Still Needed For Stronger Requirement Coverage
 
@@ -88,6 +90,7 @@ This checklist maps the current workspace against the project requirements in [r
   risk reduction frequency, material scenario changes, and per-intervention comparison.
 - [x] Add repeated-run stability analysis if simulation remains stochastic.
 - [x] Add fairness breakdowns across customer segments.
+- [ ] Regenerate production-size training artifacts after the latest model-shape changes and review the new simulation and fairness outputs.
 
 ## 6. Downstream Applications
 
@@ -162,7 +165,7 @@ This checklist maps the current workspace against the project requirements in [r
 - [x] Unit tests exist in [tests/test_banksimfm.py](/Users/abhishek/Desktop/Projects/regtech/tests/test_banksimfm.py).
 - [x] Data sanity tests exist in [tests/test_data_distribution.py](/Users/abhishek/Desktop/Projects/regtech/tests/test_data_distribution.py).
 - [x] Current test suite passes locally.
-- [ ] If you add new dashboard or evaluation features, add tests for them where practical.
+- [x] Intervention-state decoding and intervention-augmented dataset behavior are now covered in tests.
 
 ## 11. Final Deliverables
 

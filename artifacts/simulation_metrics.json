@@ -1,0 +1,860 @@
+{
+  "early_warning": {
+    "transformer": {
+      "average_lead_time_days": 0.0,
+      "hit_rate_on_distressed_customers": 0.0,
+      "false_positive_rate_on_stable_customers": 0.0
+    },
+    "lstm": {
+      "average_lead_time_days": 20.5455,
+      "hit_rate_on_distressed_customers": 0.7333,
+      "false_positive_rate_on_stable_customers": 0.5667
+    }
+  },
+  "simulation_quality": {
+    "event_mix_divergence": 0.675,
+    "balance_trajectory_rmse": 371.8487,
+    "utilization_rmse": 0.0282
+  },
+  "stability": {
+    "ending_balance_std": 216.0007,
+    "negative_event_count_std": 0.0,
+    "repeat_runs": 10
+  },
+  "intervention_usefulness": {
+    "per_intervention": {
+      "due_date_shift_7d": {
+        "average_predicted_risk_reduction": 0.0,
+        "share_improved_by_5pp": 0.0,
+        "customers_evaluated": 20
+      },
+      "installment_restructure": {
+        "average_predicted_risk_reduction": 0.0,
+        "share_improved_by_5pp": 0.0,
+        "customers_evaluated": 20
+      },
+      "reminder": {
+        "average_predicted_risk_reduction": 0.0,
+        "share_improved_by_5pp": 0.0,
+        "customers_evaluated": 20
+      },
+      "temporary_overdraft_buffer": {
+        "average_predicted_risk_reduction": 0.0,
+        "share_improved_by_5pp": 0.0,
+        "customers_evaluated": 20
+      }
+    },
+    "portfolio_by_segment": {
+      "archetype": [
+        {
+          "segment_value": "high_obligation",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9807,
+          "average_intervention_risk": 0.9807,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "high_obligation",
+          "intervention": "installment_restructure",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9807,
+          "average_intervention_risk": 0.9807,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "high_obligation",
+          "intervention": "reminder",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9807,
+          "average_intervention_risk": 0.9807,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "high_obligation",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9807,
+          "average_intervention_risk": 0.9807,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "near_distress",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9832,
+          "average_intervention_risk": 0.9832,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "near_distress",
+          "intervention": "installment_restructure",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9832,
+          "average_intervention_risk": 0.9832,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "near_distress",
+          "intervention": "reminder",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9832,
+          "average_intervention_risk": 0.9832,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "near_distress",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9832,
+          "average_intervention_risk": 0.9832,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "rising_utilization",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9846,
+          "average_intervention_risk": 0.9846,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "rising_utilization",
+          "intervention": "installment_restructure",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9846,
+          "average_intervention_risk": 0.9846,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "rising_utilization",
+          "intervention": "reminder",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9846,
+          "average_intervention_risk": 0.9846,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "rising_utilization",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9846,
+          "average_intervention_risk": 0.9846,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "stable_salaried",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 6,
+          "average_baseline_risk": 0.9748,
+          "average_intervention_risk": 0.9748,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "stable_salaried",
+          "intervention": "installment_restructure",
+          "customer_count": 6,
+          "average_baseline_risk": 0.9748,
+          "average_intervention_risk": 0.9748,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "stable_salaried",
+          "intervention": "reminder",
+          "customer_count": 6,
+          "average_baseline_risk": 0.9748,
+          "average_intervention_risk": 0.9748,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "stable_salaried",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 6,
+          "average_baseline_risk": 0.9748,
+          "average_intervention_risk": 0.9748,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "volatile_income",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 3,
+          "average_baseline_risk": 0.991,
+          "average_intervention_risk": 0.991,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "volatile_income",
+          "intervention": "installment_restructure",
+          "customer_count": 3,
+          "average_baseline_risk": 0.991,
+          "average_intervention_risk": 0.991,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "volatile_income",
+          "intervention": "reminder",
+          "customer_count": 3,
+          "average_baseline_risk": 0.991,
+          "average_intervention_risk": 0.991,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "volatile_income",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 3,
+          "average_baseline_risk": 0.991,
+          "average_intervention_risk": 0.991,
+          "average_risk_reduction": 0.0
+        }
+      ],
+      "income_band": [
+        {
+          "segment_value": "low",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9838,
+          "average_intervention_risk": 0.9838,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "low",
+          "intervention": "installment_restructure",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9838,
+          "average_intervention_risk": 0.9838,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "low",
+          "intervention": "reminder",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9838,
+          "average_intervention_risk": 0.9838,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "low",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9838,
+          "average_intervention_risk": 0.9838,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "middle",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 10,
+          "average_baseline_risk": 0.9833,
+          "average_intervention_risk": 0.9833,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "middle",
+          "intervention": "installment_restructure",
+          "customer_count": 10,
+          "average_baseline_risk": 0.9833,
+          "average_intervention_risk": 0.9833,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "middle",
+          "intervention": "reminder",
+          "customer_count": 10,
+          "average_baseline_risk": 0.9833,
+          "average_intervention_risk": 0.9833,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "middle",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 10,
+          "average_baseline_risk": 0.9833,
+          "average_intervention_risk": 0.9833,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "upper_middle",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9792,
+          "average_intervention_risk": 0.9792,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "upper_middle",
+          "intervention": "installment_restructure",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9792,
+          "average_intervention_risk": 0.9792,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "upper_middle",
+          "intervention": "reminder",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9792,
+          "average_intervention_risk": 0.9792,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "upper_middle",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9792,
+          "average_intervention_risk": 0.9792,
+          "average_risk_reduction": 0.0
+        }
+      ],
+      "employment_type": [
+        {
+          "segment_value": "contract",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9894,
+          "average_intervention_risk": 0.9894,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "contract",
+          "intervention": "installment_restructure",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9894,
+          "average_intervention_risk": 0.9894,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "contract",
+          "intervention": "reminder",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9894,
+          "average_intervention_risk": 0.9894,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "contract",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9894,
+          "average_intervention_risk": 0.9894,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "full_time",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9783,
+          "average_intervention_risk": 0.9783,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "full_time",
+          "intervention": "installment_restructure",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9783,
+          "average_intervention_risk": 0.9783,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "full_time",
+          "intervention": "reminder",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9783,
+          "average_intervention_risk": 0.9783,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "full_time",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9783,
+          "average_intervention_risk": 0.9783,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "gig",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 2,
+          "average_baseline_risk": 0.9766,
+          "average_intervention_risk": 0.9766,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "gig",
+          "intervention": "installment_restructure",
+          "customer_count": 2,
+          "average_baseline_risk": 0.9766,
+          "average_intervention_risk": 0.9766,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "gig",
+          "intervention": "reminder",
+          "customer_count": 2,
+          "average_baseline_risk": 0.9766,
+          "average_intervention_risk": 0.9766,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "gig",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 2,
+          "average_baseline_risk": 0.9766,
+          "average_intervention_risk": 0.9766,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "professional",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9733,
+          "average_intervention_risk": 0.9733,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "professional",
+          "intervention": "installment_restructure",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9733,
+          "average_intervention_risk": 0.9733,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "professional",
+          "intervention": "reminder",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9733,
+          "average_intervention_risk": 0.9733,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "professional",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9733,
+          "average_intervention_risk": 0.9733,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "self_employed",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9916,
+          "average_intervention_risk": 0.9916,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "self_employed",
+          "intervention": "installment_restructure",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9916,
+          "average_intervention_risk": 0.9916,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "self_employed",
+          "intervention": "reminder",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9916,
+          "average_intervention_risk": 0.9916,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "self_employed",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9916,
+          "average_intervention_risk": 0.9916,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "service",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 6,
+          "average_baseline_risk": 0.9856,
+          "average_intervention_risk": 0.9856,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "service",
+          "intervention": "installment_restructure",
+          "customer_count": 6,
+          "average_baseline_risk": 0.9856,
+          "average_intervention_risk": 0.9856,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "service",
+          "intervention": "reminder",
+          "customer_count": 6,
+          "average_baseline_risk": 0.9856,
+          "average_intervention_risk": 0.9856,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "service",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 6,
+          "average_baseline_risk": 0.9856,
+          "average_intervention_risk": 0.9856,
+          "average_risk_reduction": 0.0
+        }
+      ],
+      "region": [
+        {
+          "segment_value": "central",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 4,
+          "average_baseline_risk": 0.9814,
+          "average_intervention_risk": 0.9814,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "central",
+          "intervention": "installment_restructure",
+          "customer_count": 4,
+          "average_baseline_risk": 0.9814,
+          "average_intervention_risk": 0.9814,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "central",
+          "intervention": "reminder",
+          "customer_count": 4,
+          "average_baseline_risk": 0.9814,
+          "average_intervention_risk": 0.9814,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "central",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 4,
+          "average_baseline_risk": 0.9814,
+          "average_intervention_risk": 0.9814,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "east",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9822,
+          "average_intervention_risk": 0.9822,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "east",
+          "intervention": "installment_restructure",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9822,
+          "average_intervention_risk": 0.9822,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "east",
+          "intervention": "reminder",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9822,
+          "average_intervention_risk": 0.9822,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "east",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9822,
+          "average_intervention_risk": 0.9822,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "north",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9801,
+          "average_intervention_risk": 0.9801,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "north",
+          "intervention": "installment_restructure",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9801,
+          "average_intervention_risk": 0.9801,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "north",
+          "intervention": "reminder",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9801,
+          "average_intervention_risk": 0.9801,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "north",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9801,
+          "average_intervention_risk": 0.9801,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "south",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9806,
+          "average_intervention_risk": 0.9806,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "south",
+          "intervention": "installment_restructure",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9806,
+          "average_intervention_risk": 0.9806,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "south",
+          "intervention": "reminder",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9806,
+          "average_intervention_risk": 0.9806,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "south",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9806,
+          "average_intervention_risk": 0.9806,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "west",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9847,
+          "average_intervention_risk": 0.9847,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "west",
+          "intervention": "installment_restructure",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9847,
+          "average_intervention_risk": 0.9847,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "west",
+          "intervention": "reminder",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9847,
+          "average_intervention_risk": 0.9847,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "west",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 5,
+          "average_baseline_risk": 0.9847,
+          "average_intervention_risk": 0.9847,
+          "average_risk_reduction": 0.0
+        }
+      ],
+      "risk_segment": [
+        {
+          "segment_value": "burdened",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9807,
+          "average_intervention_risk": 0.9807,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "burdened",
+          "intervention": "installment_restructure",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9807,
+          "average_intervention_risk": 0.9807,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "burdened",
+          "intervention": "reminder",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9807,
+          "average_intervention_risk": 0.9807,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "burdened",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 1,
+          "average_baseline_risk": 0.9807,
+          "average_intervention_risk": 0.9807,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "elevated",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9832,
+          "average_intervention_risk": 0.9832,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "elevated",
+          "intervention": "installment_restructure",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9832,
+          "average_intervention_risk": 0.9832,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "elevated",
+          "intervention": "reminder",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9832,
+          "average_intervention_risk": 0.9832,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "elevated",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 7,
+          "average_baseline_risk": 0.9832,
+          "average_intervention_risk": 0.9832,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "emerging_risk",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 2,
+          "average_baseline_risk": 0.9767,
+          "average_intervention_risk": 0.9767,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "emerging_risk",
+          "intervention": "installment_restructure",
+          "customer_count": 2,
+          "average_baseline_risk": 0.9767,
+          "average_intervention_risk": 0.9767,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "emerging_risk",
+          "intervention": "reminder",
+          "customer_count": 2,
+          "average_baseline_risk": 0.9767,
+          "average_intervention_risk": 0.9767,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "emerging_risk",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 2,
+          "average_baseline_risk": 0.9767,
+          "average_intervention_risk": 0.9767,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "income_volatility",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 3,
+          "average_baseline_risk": 0.991,
+          "average_intervention_risk": 0.991,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "income_volatility",
+          "intervention": "installment_restructure",
+          "customer_count": 3,
+          "average_baseline_risk": 0.991,
+          "average_intervention_risk": 0.991,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "income_volatility",
+          "intervention": "reminder",
+          "customer_count": 3,
+          "average_baseline_risk": 0.991,
+          "average_intervention_risk": 0.991,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "income_volatility",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 3,
+          "average_baseline_risk": 0.991,
+          "average_intervention_risk": 0.991,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "stable",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 4,
+          "average_baseline_risk": 0.9738,
+          "average_intervention_risk": 0.9738,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "stable",
+          "intervention": "installment_restructure",
+          "customer_count": 4,
+          "average_baseline_risk": 0.9738,
+          "average_intervention_risk": 0.9738,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "stable",
+          "intervention": "reminder",
+          "customer_count": 4,
+          "average_baseline_risk": 0.9738,
+          "average_intervention_risk": 0.9738,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "stable",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 4,
+          "average_baseline_risk": 0.9738,
+          "average_intervention_risk": 0.9738,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "watchlist",
+          "intervention": "due_date_shift_7d",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9846,
+          "average_intervention_risk": 0.9846,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "watchlist",
+          "intervention": "installment_restructure",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9846,
+          "average_intervention_risk": 0.9846,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "watchlist",
+          "intervention": "reminder",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9846,
+          "average_intervention_risk": 0.9846,
+          "average_risk_reduction": 0.0
+        },
+        {
+          "segment_value": "watchlist",
+          "intervention": "temporary_overdraft_buffer",
+          "customer_count": 3,
+          "average_baseline_risk": 0.9846,
+          "average_intervention_risk": 0.9846,
+          "average_risk_reduction": 0.0
+        }
+      ]
+    }
+  }
+}

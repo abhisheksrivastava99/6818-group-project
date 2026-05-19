@@ -19,16 +19,19 @@ from banksimfm.data.pipeline import (
     AMOUNT_BINS,
     BALANCE_BINS,
     DELTA_BINS,
+    DUE_BINS,
     DISTRESS_EVENT_TYPES,
     GAP_BINS,
     UTIL_BINS,
     build_datasets,
+    compute_due_amount_feature,
 )
 from banksimfm.data.schema import INTERVENTION_TYPES
 from banksimfm.models.baseline import LSTMDistressModel
 from banksimfm.models.transformer import CausalEventTransformer
 from banksimfm.runtime import resolve_device
-from banksimfm.sim.scenario import decode_forecast
+from banksimfm.sim.engine import apply_intervention_policy
+from banksimfm.sim.scenario import apply_state_to_history, decode_forecast, history_to_state
 
 
 SEGMENT_FIELDS = ["archetype", "income_band", "employment_type", "region", "risk_segment"]
@@ -152,7 +155,11 @@ def _prepare_lstm_tensors(history: pd.DataFrame, context_length: int) -> tuple[t
         frame["overdraft_flag"] = frame["event_type"].eq("overdraft_event").astype(float)
     if "days_to_next_due" not in frame.columns:
         frame["days_to_next_due"] = 7.0
-    dense_features = torch.zeros((1, context_length, 7), dtype=torch.float32)
+    if "due_amount_feature" not in frame.columns:
+        frame["due_amount_feature"] = compute_due_amount_feature(frame)
+    elif frame["due_amount_feature"].isna().any():
+        frame["due_amount_feature"] = frame["due_amount_feature"].fillna(compute_due_amount_feature(frame))
+    dense_features = torch.zeros((1, context_length, 8), dtype=torch.float32)
     mask = torch.zeros((1, context_length), dtype=torch.bool)
     offset = context_length - len(frame)
     dense_features[0, offset:, :] = torch.tensor(
@@ -161,6 +168,7 @@ def _prepare_lstm_tensors(history: pd.DataFrame, context_length: int) -> tuple[t
                 "amount",
                 "balance_after",
                 "credit_utilization",
+                "due_amount_feature",
                 "days_to_next_due",
                 "direction_flag",
                 "miss_flag",
@@ -350,17 +358,20 @@ def _compute_simulation_metrics(
 
         customer_meta = test_customers[test_customers["customer_id"] == customer_id].iloc[0].to_dict()
         for intervention in INTERVENTION_TYPES[1:]:
+            adjusted_state = apply_intervention_policy(history_to_state(history), intervention)
+            adjusted_history = apply_state_to_history(history, adjusted_state, intervention)
             intervention_forecast = decode_forecast(
                 transformer,
-                history,
+                adjusted_history,
                 intervention_type=intervention,
                 horizon_days=30,
                 device=device,
                 context_length=config.model.context_length,
                 strategy="greedy",
+                starting_state=adjusted_state,
             )
             intervention_generated = pd.DataFrame(intervention_forecast["projected_events"])
-            intervention_history = pd.concat([history, intervention_generated], ignore_index=True, sort=False)
+            intervention_history = pd.concat([adjusted_history, intervention_generated], ignore_index=True, sort=False)
             intervention_risk = _lstm_probability_from_history(lstm, intervention_history, device, config.model.context_length)
             delta = baseline_risk - intervention_risk
             row = {
@@ -438,6 +449,7 @@ def train_models(config: ProjectConfig | None = None) -> TrainingArtifacts:
             "amount": len(AMOUNT_BINS),
             "balance": len(BALANCE_BINS),
             "util": len(UTIL_BINS),
+            "due": len(DUE_BINS),
             "gap": len(GAP_BINS),
             "delta": len(DELTA_BINS),
             "intervention": len(bundle.encoders.intervention_type_to_id),
@@ -458,7 +470,10 @@ def train_models(config: ProjectConfig | None = None) -> TrainingArtifacts:
     ce_bucket = nn.CrossEntropyLoss()
     pos_weight = _positive_class_weight(dataloaders["train"], device)
     bce_loss = nn.BCEWithLogitsLoss(pos_weight=pos_weight, reduction="none")
-    transformer_optimizer = torch.optim.Adam(transformer.parameters(), lr=config.model.learning_rate)
+    transformer_optimizer = torch.optim.Adam(
+        transformer.parameters(),
+        lr=getattr(config.model, "transformer_learning_rate", config.model.learning_rate),
+    )
     lstm_optimizer = torch.optim.Adam(lstm.parameters(), lr=config.model.learning_rate)
 
     best_transformer_auc = -1.0
@@ -482,7 +497,8 @@ def train_models(config: ProjectConfig | None = None) -> TrainingArtifacts:
         f"Config | epochs={config.model.max_epochs} "
         f"patience={config.model.patience} "
         f"batch_size={config.model.batch_size} "
-        f"lr={config.model.learning_rate} "
+        f"transformer_lr={getattr(config.model, 'transformer_learning_rate', config.model.learning_rate)} "
+        f"lstm_lr={config.model.learning_rate} "
         f"context_length={config.model.context_length}"
     )
 
@@ -524,7 +540,7 @@ def train_models(config: ProjectConfig | None = None) -> TrainingArtifacts:
                 ce_event(transformer_outputs["next_event_logits"], target_event)
                 + 0.5 * ce_bucket(transformer_outputs["next_amount_logits"], target_amount_bucket)
                 + 0.5 * ce_bucket(transformer_outputs["next_balance_delta_logits"], target_balance_delta_bucket)
-                + transformer_distress_loss
+                + getattr(config.model, "distress_loss_weight", 1.0) * transformer_distress_loss
             )
             transformer_loss.backward()
             transformer_optimizer.step()
@@ -543,6 +559,8 @@ def train_models(config: ProjectConfig | None = None) -> TrainingArtifacts:
         lstm_val_probs, lstm_val_targets = _collect_lstm_outputs(lstm, dataloaders["val"], device)
         transformer_val = _compute_binary_metrics(transformer_val_targets, transformer_val_probs, threshold=0.5)
         lstm_val = _compute_binary_metrics(lstm_val_targets, lstm_val_probs, threshold=0.5)
+        transformer_val_mean_prob = float(np.mean(transformer_val_probs)) if transformer_val_probs else 0.0
+        transformer_val_positive_rate = float((np.asarray(transformer_val_probs) >= 0.5).mean()) if transformer_val_probs else 0.0
 
         transformer_improved = transformer_val["auc"] > best_transformer_auc
         if transformer_improved:
@@ -573,6 +591,10 @@ def train_models(config: ProjectConfig | None = None) -> TrainingArtifacts:
         )
         print(f"  Transformer val @0.5 | {_format_metric_block(transformer_val)}")
         print(f"  LSTM val @0.5        | {_format_metric_block(lstm_val)}")
+        print(
+            f"  Transformer val profile | mean_prob={transformer_val_mean_prob:.4f} "
+            f"predicted_positive_rate@0.5={transformer_val_positive_rate:.4f}"
+        )
         print(f"  Best so far | transformer_auc={best_transformer_auc:.4f} lstm_auc={best_lstm_auc:.4f}")
 
         if patience_transformer <= 0 and patience_lstm <= 0:
@@ -588,6 +610,7 @@ def train_models(config: ProjectConfig | None = None) -> TrainingArtifacts:
     lstm_threshold = _select_best_threshold(lstm_val_targets, lstm_val_probs)
     transformer_test_probs, transformer_test_targets = _collect_transformer_outputs(transformer, dataloaders["test"], device)
     lstm_test_probs, lstm_test_targets = _collect_lstm_outputs(lstm, dataloaders["test"], device)
+    transformer_selected_positive_rate = float((np.asarray(transformer_test_probs) >= transformer_threshold).mean()) if transformer_test_probs else 0.0
 
     metrics = {
         "transformer": {
@@ -604,6 +627,10 @@ def train_models(config: ProjectConfig | None = None) -> TrainingArtifacts:
     simulation_metrics = _compute_simulation_metrics(bundle, transformer, lstm, device, config, thresholds, dataloaders["test"])
 
     print(f"Selected thresholds | transformer={transformer_threshold:.3f} lstm={lstm_threshold:.3f}")
+    print(
+        f"Transformer threshold profile | mean_val_prob={float(np.mean(transformer_val_probs)) if transformer_val_probs else 0.0:.4f} "
+        f"predicted_positive_rate@selected={transformer_selected_positive_rate:.4f}"
+    )
     print(f"Final transformer validation | {_format_metric_block(metrics['transformer']['validation'])}")
     print(f"Final transformer test       | {_format_metric_block(metrics['transformer']['test'])}")
     print(f"Final LSTM validation        | {_format_metric_block(metrics['lstm']['validation'])}")

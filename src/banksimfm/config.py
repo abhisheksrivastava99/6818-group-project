@@ -33,10 +33,13 @@ class ModelConfig:
     dropout: float = 0.1
     batch_size: int = 32
     learning_rate: float = 1e-3
-    max_epochs: int = 8
-    patience: int = 4
+    transformer_learning_rate: float = 5e-4
+    max_epochs: int = 12
+    patience: int = 5
     forecast_steps: int = 12
-    intervention_augmentation_rate: float = 0.15
+    intervention_augmentation_rate: float = 0.30
+    intervention_augmentation_steps: int = 3
+    distress_loss_weight: float = 1.5
 
 
 @dataclass
