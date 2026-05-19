@@ -79,8 +79,10 @@ Synthetic demo data has already been generated and stored in [artifacts](/Users/
 
 At the current default config, this is roughly:
 
-- `90` synthetic customers
-- `20,450` event rows
+- `300` synthetic customers
+- `82,391` event rows
+
+The tuned generator now uses softer, probabilistic archetypes with more customer-level variation, recovery behavior, and less deterministic distress pathways.
 
 ## Training
 
@@ -149,6 +151,7 @@ The current tests cover:
 - chronological event generation
 - balance continuity across events
 - customer-split leakage checks
+- archetype distress-rate sanity and split-label distribution checks
 - training artifact creation
 - public inference API behavior
 

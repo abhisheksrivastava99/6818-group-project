@@ -1,0 +1,103 @@
+# ==============================================================================
+# Git Ignore Configuration for BankSimFM (RegTech Project)
+# ==============================================================================
+
+# --- System / OS Specific Files ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# --- Python Virtual Environments ---
+.venv/
+venv/
+env/
+ENV/
+pythonenv/
+
+# --- Python Bytecode and Caches ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.tox/
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+
+# --- Package Build & Distribution ---
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Machine Learning / Deep Learning Weights & Data Artifacts ---
+# PyTorch, TensorFlow, and general ML model weights (often too large for Git)
+*.pth
+*.ckpt
+*.h5
+*.pb
+*.onnx
+*.joblib
+*.pkl
+*.pickle
+
+# Large data/results in artifacts directory, but keep configurations if needed
+# Note: If you want to commit specific JSON configurations, you can keep them unignored:
+# !artifacts/*.json
+
+# --- Streamlit Configurations & Secrets ---
+.streamlit/secrets.toml
+
+# --- Environment Variables, Credentials, and Secrets ---
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.passwd
+
+# --- IDE and Editor Configurations ---
+# VS Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# PyCharm / IntelliJ
+.idea/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim / Emacs
+*~
+*.swp
+*.swo

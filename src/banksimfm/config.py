@@ -9,7 +9,7 @@ from typing import Dict, List
 
 @dataclass
 class DataConfig:
-    num_customers: int = 90
+    num_customers: int = 300
     history_days: int = 120
     max_events_per_customer: int = 256
     seed: int = 7
@@ -33,8 +33,8 @@ class ModelConfig:
     dropout: float = 0.1
     batch_size: int = 32
     learning_rate: float = 1e-3
-    max_epochs: int = 4
-    patience: int = 3
+    max_epochs: int = 8
+    patience: int = 4
     forecast_steps: int = 12
 
 

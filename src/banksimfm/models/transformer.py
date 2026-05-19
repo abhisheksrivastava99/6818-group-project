@@ -32,7 +32,11 @@ class CausalEventTransformer(nn.Module):
             batch_first=True,
             activation="gelu",
         )
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.transformer = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=num_layers,
+            enable_nested_tensor=False,
+        )
         self.dropout = nn.Dropout(dropout)
         self.next_event_head = nn.Linear(hidden_size, vocab_size)
         self.distress_head = nn.Linear(hidden_size, 1)

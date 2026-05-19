@@ -1,6 +1,6 @@
 {
   "data": {
-    "num_customers": 90,
+    "num_customers": 300,
     "history_days": 120,
     "max_events_per_customer": 256,
     "seed": 7
@@ -13,8 +13,8 @@
     "dropout": 0.1,
     "batch_size": 32,
     "learning_rate": 0.001,
-    "max_epochs": 4,
-    "patience": 3,
+    "max_epochs": 8,
+    "patience": 4,
     "forecast_steps": 12
   },
   "app": {

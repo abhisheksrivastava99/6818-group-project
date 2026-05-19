@@ -169,14 +169,14 @@ def build_datasets(config: ProjectConfig | None = None) -> Tuple[DemoBundle, Dic
     return bundle, datasets
 
 
-def load_or_create_demo_bundle(config: ProjectConfig | None = None) -> DemoBundle:
+def load_or_create_demo_bundle(config: ProjectConfig | None = None, force_regenerate: bool = False) -> DemoBundle:
     config = config or default_config()
     artifacts_dir = config.artifacts_dir
     events_path = artifacts_dir / "demo_events.csv"
     customers_path = artifacts_dir / "demo_customers.csv"
     metadata_path = artifacts_dir / "demo_metadata.json"
 
-    if events_path.exists() and customers_path.exists() and metadata_path.exists():
+    if not force_regenerate and events_path.exists() and customers_path.exists() and metadata_path.exists():
         events = pd.read_csv(events_path, parse_dates=["event_timestamp"])
         customers = pd.read_csv(customers_path)
         metadata = json.loads(metadata_path.read_text())
