@@ -1,16 +1,23 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 import torch
 
 from banksimfm.config import AppConfig, DataConfig, ModelConfig, ProjectConfig
 from banksimfm.data.pipeline import build_datasets
+from banksimfm.app.dashboard import (
+    _build_collections_prioritization_frame,
+    _filter_collections_prioritization_frame,
+    _priority_tier,
+)
 from banksimfm.inference import forecast_customer, score_customer, simulate_intervention
-from banksimfm.models.training import train_models
+from banksimfm.models.training import refresh_simulation_metrics, train_models
 from banksimfm.models.transformer import CausalEventTransformer
 from banksimfm.data.pipeline import AMOUNT_BINS, BALANCE_BINS, DELTA_BINS, DUE_BINS, GAP_BINS, UTIL_BINS
 from banksimfm.sim.engine import AccountState, apply_intervention_policy
@@ -62,6 +69,48 @@ class FixedTransformer(torch.nn.Module):
             "next_balance_delta_logits": delta_logits,
             "distress_logits": distress_logits,
         }
+
+
+class InterventionAwareTransformer(torch.nn.Module):
+    def __init__(self, vocab_size: int, amount_size: int, delta_size: int, baseline_event_id: int, intervention_event_id: int) -> None:
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.amount_size = amount_size
+        self.delta_size = delta_size
+        self.baseline_event_id = baseline_event_id
+        self.intervention_event_id = intervention_event_id
+
+    def forward(self, seq_tokens: torch.Tensor, mask: torch.Tensor) -> dict[str, torch.Tensor]:
+        batch_size = seq_tokens.shape[0]
+        intervention_active = seq_tokens[:, :, 6].max(dim=1).values > 0
+        event_logits = torch.full((batch_size, self.vocab_size), -1e9, dtype=torch.float32, device=seq_tokens.device)
+        amount_logits = torch.full((batch_size, self.amount_size), -1e9, dtype=torch.float32, device=seq_tokens.device)
+        delta_logits = torch.full((batch_size, self.delta_size), -1e9, dtype=torch.float32, device=seq_tokens.device)
+        distress_logits = torch.where(
+            intervention_active,
+            torch.full((batch_size,), -2.0, dtype=torch.float32, device=seq_tokens.device),
+            torch.full((batch_size,), 1.5, dtype=torch.float32, device=seq_tokens.device),
+        )
+        event_logits[:, self.baseline_event_id] = 0.0
+        event_logits[intervention_active, :] = -1e9
+        event_logits[intervention_active, self.intervention_event_id] = 0.0
+        amount_logits[:, min(6, self.amount_size - 1)] = 0.0
+        delta_logits[:, min(6, self.delta_size - 1)] = 0.0
+        return {
+            "next_event_logits": event_logits,
+            "next_amount_logits": amount_logits,
+            "next_balance_delta_logits": delta_logits,
+            "distress_logits": distress_logits,
+        }
+
+
+class ConstantLSTM(torch.nn.Module):
+    def __init__(self, logit: float) -> None:
+        super().__init__()
+        self.logit = logit
+
+    def forward(self, dense_features: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        return torch.full((dense_features.shape[0],), self.logit, dtype=torch.float32, device=dense_features.device)
 
 
 class BankSimFMTests(unittest.TestCase):
@@ -220,6 +269,176 @@ class BankSimFMTests(unittest.TestCase):
             result = simulate_intervention(history, "temporary_overdraft_buffer", horizon_days=30)
             self.assertIsInstance(result.risk_delta, float)
             self.assertGreater(len(result.scenario_differences), 0)
+
+    def test_simulate_intervention_uses_transformer_scenario_rescoring(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as tmp_dir:
+            bundle, _ = build_datasets(tiny_config(Path(tmp_dir)))
+            customer_id = bundle.customers["customer_id"].iloc[0]
+            history = bundle.events[bundle.events["customer_id"] == customer_id].sort_values("event_timestamp").tail(20)
+            transformer = InterventionAwareTransformer(
+                vocab_size=len(bundle.encoders.event_type_to_id) + 1,
+                amount_size=len(AMOUNT_BINS),
+                delta_size=len(DELTA_BINS),
+                baseline_event_id=bundle.encoders.event_type_to_id["card_spend"],
+                intervention_event_id=bundle.encoders.event_type_to_id["credit_card_payment_made"],
+            )
+            fake_loaded = {
+                "device": torch.device("cpu"),
+                "transformer": transformer,
+                "lstm": ConstantLSTM(logit=-10.0),
+                "thresholds": {"transformer": 0.5, "lstm": 0.5},
+            }
+            with patch("banksimfm.inference._load_trained_models", return_value=fake_loaded):
+                result = simulate_intervention(history, "temporary_overdraft_buffer", horizon_days=30)
+            self.assertNotEqual(result.baseline.risk.distress_probability, result.intervention.risk.distress_probability)
+            self.assertNotEqual(result.risk_delta, 0.0)
+
+    def test_score_customer_prefers_transformer_when_available(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as tmp_dir:
+            bundle, _ = build_datasets(tiny_config(Path(tmp_dir)))
+            customer_id = bundle.customers["customer_id"].iloc[0]
+            history = bundle.events[bundle.events["customer_id"] == customer_id].sort_values("event_timestamp").tail(20)
+            fake_loaded = {
+                "device": torch.device("cpu"),
+                "transformer": InterventionAwareTransformer(
+                    vocab_size=len(bundle.encoders.event_type_to_id) + 1,
+                    amount_size=len(AMOUNT_BINS),
+                    delta_size=len(DELTA_BINS),
+                    baseline_event_id=bundle.encoders.event_type_to_id["card_spend"],
+                    intervention_event_id=bundle.encoders.event_type_to_id["credit_card_payment_made"],
+                ),
+                "lstm": ConstantLSTM(logit=-10.0),
+                "thresholds": {"transformer": 0.8, "lstm": 0.5},
+            }
+            with patch("banksimfm.inference._load_trained_models", return_value=fake_loaded):
+                score = score_customer(history, horizon_days=30)
+            self.assertGreater(score.distress_probability, 0.8)
+            self.assertTrue(score.distress_label)
+
+    def test_refresh_simulation_metrics_uses_saved_artifacts_without_retraining(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as tmp_dir:
+            config = tiny_config(Path(tmp_dir))
+            train_models(config)
+            fairness_path = config.artifacts_dir / "fairness_metrics.json"
+            fairness_before = fairness_path.read_text()
+            metrics_path = config.artifacts_dir / "simulation_metrics.json"
+            before_mtime = metrics_path.stat().st_mtime
+
+            with patch("banksimfm.models.training.train_models", side_effect=AssertionError("refresh should not retrain")):
+                refreshed = refresh_simulation_metrics(config)
+
+            fairness_after = fairness_path.read_text()
+            self.assertEqual(fairness_before, fairness_after)
+            self.assertGreaterEqual(metrics_path.stat().st_mtime, before_mtime)
+            self.assertIn("intervention_usefulness", refreshed)
+            repo_root = Path(__file__).resolve().parents[1]
+            self.assertTrue((repo_root / "refresh_simulation_metrics.py").exists())
+            written = json.loads(metrics_path.read_text())
+            self.assertEqual(written["stability"]["repeat_runs"], 10)
+
+    def test_priority_tier_rules(self) -> None:
+        self.assertEqual(_priority_tier(0.60, 0.10), "High")
+        self.assertEqual(_priority_tier(0.35, 0.01), "Medium")
+        self.assertEqual(_priority_tier(0.20, 0.10), "Monitor")
+        self.assertEqual(_priority_tier(0.55, -0.01), "Monitor")
+
+    def test_collections_prioritization_frame_contains_ranked_recommendations(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as tmp_dir:
+            bundle, _ = build_datasets(tiny_config(Path(tmp_dir)))
+
+            def fake_score(history: pd.DataFrame, horizon_days: int = 30):
+                customer_id = history.iloc[-1]["customer_id"]
+                score_map = {
+                    "CUST_0000": 0.72,
+                    "CUST_0001": 0.48,
+                }
+                probability = score_map.get(customer_id, 0.15)
+                return type(
+                    "ScoreResultStub",
+                    (),
+                    {
+                        "distress_probability": probability,
+                        "distress_label": probability >= 0.5,
+                        "top_drivers": ["recent low balances"],
+                        "recent_risk_signals": ["synthetic signal"],
+                    },
+                )()
+
+            def fake_simulate(history: pd.DataFrame, intervention_type: str, horizon_days: int = 30):
+                customer_id = history.iloc[-1]["customer_id"]
+                base_map = {"CUST_0000": 0.72, "CUST_0001": 0.48}
+                intervention_map = {
+                    ("CUST_0000", "reminder"): 0.70,
+                    ("CUST_0000", "due_date_shift_7d"): 0.61,
+                    ("CUST_0000", "temporary_overdraft_buffer"): 0.40,
+                    ("CUST_0000", "installment_restructure"): 0.31,
+                    ("CUST_0001", "reminder"): 0.47,
+                    ("CUST_0001", "due_date_shift_7d"): 0.45,
+                    ("CUST_0001", "temporary_overdraft_buffer"): 0.52,
+                    ("CUST_0001", "installment_restructure"): 0.43,
+                }
+                baseline_probability = base_map.get(customer_id, 0.15)
+                intervention_probability = intervention_map.get((customer_id, intervention_type), baseline_probability)
+                baseline_risk = type("ScoreResultStub", (), {"distress_probability": baseline_probability})()
+                intervention_risk = type("ScoreResultStub", (), {"distress_probability": intervention_probability})()
+                return type(
+                    "SimulationResultStub",
+                    (),
+                    {
+                        "baseline": type("SimulationSideStub", (), {"risk": baseline_risk})(),
+                        "intervention": type("SimulationSideStub", (), {"risk": intervention_risk})(),
+                    },
+                )()
+
+            subset_customer_ids = bundle.customers["customer_id"].head(3).tolist()
+            subset_customers = bundle.customers[bundle.customers["customer_id"].isin(subset_customer_ids)].copy()
+            subset_events = bundle.events[bundle.events["customer_id"].isin(subset_customer_ids)].copy()
+            with patch("banksimfm.app.dashboard.score_customer", side_effect=fake_score), patch(
+                "banksimfm.app.dashboard.simulate_intervention", side_effect=fake_simulate
+            ):
+                frame = _build_collections_prioritization_frame(subset_customers, subset_events, horizon_days=30)
+
+            self.assertFalse(frame.empty)
+            self.assertEqual(frame.iloc[0]["customer_id"], "CUST_0000")
+            self.assertEqual(frame.iloc[0]["recommended_intervention"], "installment_restructure")
+            self.assertGreater(frame.iloc[0]["predicted_risk_reduction"], 0.0)
+            self.assertIn("current_risk", frame.columns)
+            self.assertIn("projected_post_intervention_risk", frame.columns)
+            self.assertIn("priority_tier", frame.columns)
+
+    def test_collections_prioritization_filters_reduce_ranked_set(self) -> None:
+        frame = pd.DataFrame(
+            [
+                {
+                    "customer_id": "A",
+                    "archetype": "stable_salaried",
+                    "income_band": "middle",
+                    "employment_type": "full_time",
+                    "region": "north",
+                    "risk_segment": "stable",
+                    "current_risk": 0.20,
+                },
+                {
+                    "customer_id": "B",
+                    "archetype": "high_obligation",
+                    "income_band": "low",
+                    "employment_type": "gig",
+                    "region": "south",
+                    "risk_segment": "emerging_risk",
+                    "current_risk": 0.60,
+                },
+            ]
+        )
+        filtered = _filter_collections_prioritization_frame(
+            frame,
+            archetype="high_obligation",
+            income_band="All",
+            employment_type="All",
+            region="All",
+            risk_segment="All",
+            min_current_risk=0.30,
+        )
+        self.assertEqual(filtered["customer_id"].tolist(), ["B"])
 
 
 if __name__ == "__main__":

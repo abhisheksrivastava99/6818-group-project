@@ -7,7 +7,7 @@ This checklist maps the current workspace against the project requirements in [r
 - [x] Select retail banking as the focus domain.
 - [x] Explain why financial foundation models can drive innovation in retail banking.
 - [x] Connect the proposal to the MarS paper and explain the adaptation from market simulation to customer-event simulation.
-- [ ] Make sure the final report clearly states the innovation thesis in concise business language.
+- [x] Make sure the final report clearly states the innovation thesis in concise business language.
 - [ ] Make sure slides include a simple MarS-to-BankSimFM mapping visual.
 
 ## 2. Data Strategy And Preparation
@@ -22,10 +22,10 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Still Needed For Submission
 
-- [ ] Final report should describe the real production data a bank would require.
-- [ ] Final report should explain how production data would be collected, anonymized, cleaned, and structured.
-- [ ] Final report should include preprocessing steps in plain language with an example training sample.
-- [ ] State clearly that the prototype uses synthetic data only and contains no PII.
+- [x] Final report should describe the real production data a bank would require.
+- [x] Final report should explain how production data would be collected, anonymized, cleaned, and structured.
+- [x] Final report should include preprocessing steps in plain language with an example training sample.
+- [x] State clearly that the prototype uses synthetic data only and contains no PII.
 - [x] Fairness-ready customer attributes exist in the synthetic customer table:
   income band, employment type, region, and risk segment.
 
@@ -43,10 +43,10 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Still Needed In Report Or Slides
 
-- [ ] Explain the transformer architecture in a presentation-friendly diagram.
-- [ ] Explain the LSTM baseline and why it is the benchmark.
-- [ ] Explain the training objective, batch construction, and evaluation approach in plain language.
-- [ ] State infrastructure assumptions such as CPU acceptable, GPU preferred, Apple Silicon support, and the need to retrain after model-shape changes.
+- [x] Explain the transformer architecture in a presentation-friendly diagram.
+- [x] Explain the LSTM baseline and why it is the benchmark.
+- [x] Explain the training objective, batch construction, and evaluation approach in plain language.
+- [x] State infrastructure assumptions such as CPU acceptable, GPU preferred, Apple Silicon support, and the need to retrain after model-shape changes.
 
 ### Still Needed In Code For Stronger Alignment
 
@@ -90,7 +90,8 @@ This checklist maps the current workspace against the project requirements in [r
   risk reduction frequency, material scenario changes, and per-intervention comparison.
 - [x] Add repeated-run stability analysis if simulation remains stochastic.
 - [x] Add fairness breakdowns across customer segments.
-- [ ] Regenerate production-size training artifacts after the latest model-shape changes and review the new simulation and fairness outputs.
+- [x] Regenerate production-size training artifacts after the latest model-shape changes and review the new simulation and fairness outputs.
+- [x] Add a no-retrain simulation refresh path via [refresh_simulation_metrics.py](/Users/abhishek/Desktop/Projects/regtech/refresh_simulation_metrics.py) for artifact-only validation.
 
 ## 6. Downstream Applications
 
@@ -102,13 +103,13 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Still Needed In Report
 
-- [ ] Describe collections prioritization use case in detail.
-- [ ] Describe portfolio stress monitoring use case in detail.
-- [ ] Describe how these applications translate into operational or economic decisions.
+- [x] Describe collections prioritization use case in detail and connect it to the implemented dashboard workflow.
+- [x] Describe portfolio stress monitoring use case in detail.
+- [x] Describe how these applications translate into operational or economic decisions.
 
 ### Still Needed In Code If You Want Stronger Demo Coverage
 
-- [ ] Add a collections prioritization or ranked-customer view in the dashboard.
+- [x] Add a collections prioritization or ranked-customer view in the dashboard.
 - [x] Add portfolio-level stress or cohort scenario monitoring in the dashboard.
 
 ## 7. Governance, Risk, And Controls
@@ -121,10 +122,10 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Still Needed In Report
 
-- [ ] Write a dedicated governance section covering privacy, fairness, explainability, reliability, and operational risk.
-- [ ] State that the prototype should not be used for live credit decisions.
-- [ ] Explain why intervention results are directional, not causal proof.
-- [ ] Propose human review and monitoring controls for any real deployment.
+- [x] Write a dedicated governance section covering privacy, fairness, explainability, reliability, and operational risk.
+- [x] State that the prototype should not be used for live credit decisions.
+- [x] Explain why intervention results are directional, not causal proof.
+- [x] Propose human review and monitoring controls for any real deployment.
 
 ### Still Needed In Code Or UI
 
@@ -136,11 +137,11 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Still Needed In Report
 
-- [ ] Define value drivers:
+- [x] Define value drivers:
   avoided missed-payment loss, reduced collections cost, retention uplift, operational savings.
-- [ ] Define a scenario-based methodology to estimate value.
-- [ ] Make clear that value is proposed, not realized.
-- [ ] Link each downstream application to a business decision and value mechanism.
+- [x] Define a scenario-based methodology to estimate value.
+- [x] Make clear that value is proposed, not realized.
+- [x] Link each downstream application to a business decision and value mechanism.
 
 ## 9. Streamlit Frontend
 
@@ -159,6 +160,7 @@ This checklist maps the current workspace against the project requirements in [r
 - [x] Add a clearer balance chart in Customer Explorer.
 - [x] Add a focused negative-event summary in What-If Simulator.
 - [x] Add architecture summary and transformer-vs-LSTM rationale to the UI.
+- [x] Align the UI with the transformer as the default live scorer while retaining the LSTM as a benchmark view.
 
 ## 10. Testing And Validation
 
@@ -186,14 +188,14 @@ This checklist maps the current workspace against the project requirements in [r
 
 ### Must Finish
 
-- [ ] Final report write-up for data strategy, model rationale, governance, economic value, assumptions, and downstream applications.
+- [x] Final report write-up for data strategy, model rationale, governance, economic value, assumptions, and downstream applications.
 - [ ] Slides that clearly explain the MarS alignment, architecture, and outcomes.
 - [x] Dashboard/UI updates for Model and Governance content for full frontend requirement coverage.
 
 ### High Value If Time Permits
 
 - [x] Add early-warning and intervention evaluation metrics.
-- [ ] Add collections prioritization and ranked-customer actioning view.
+- [x] Add collections prioritization and ranked-customer actioning view.
 - [x] Add portfolio stress views.
 - [x] Add customer segment fields to support fairness evaluation.
 

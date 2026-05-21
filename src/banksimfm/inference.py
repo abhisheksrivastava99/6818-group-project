@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -26,11 +25,15 @@ from banksimfm.data.pipeline import (
 )
 from banksimfm.data.schema import INTERVENTION_TYPES
 from banksimfm.models.baseline import LSTMDistressModel
-from banksimfm.models.training import train_models
+from banksimfm.models.training import load_saved_models, train_models
 from banksimfm.models.transformer import CausalEventTransformer
-from banksimfm.runtime import resolve_device
 from banksimfm.sim.engine import apply_intervention_policy, state_risk_factors
-from banksimfm.sim.scenario import apply_state_to_history, decode_forecast, history_to_state
+from banksimfm.sim.scenario import (
+    apply_state_to_history,
+    decode_forecast,
+    history_to_state,
+    transformer_probability_from_history,
+)
 from banksimfm.types import ForecastResult, ScoreResult, SimulationResult, SimulationSide
 
 
@@ -128,50 +131,7 @@ def _heuristic_probability(history_df: pd.DataFrame, horizon_days: int) -> float
 
 @lru_cache(maxsize=1)
 def _load_trained_models() -> Optional[Dict[str, object]]:
-    config = default_config()
-    transformer_path = config.artifacts_dir / "transformer.pt"
-    lstm_path = config.artifacts_dir / "lstm.pt"
-    metrics_path = config.artifacts_dir / "metrics.json"
-    if not transformer_path.exists() or not lstm_path.exists():
-        return None
-
-    device = resolve_device()
-    encoders = build_encoders()
-    transformer = CausalEventTransformer(
-        vocab_size=len(encoders.event_type_to_id) + 1,
-        bucket_sizes={
-            "amount": len(AMOUNT_BINS),
-            "balance": len(BALANCE_BINS),
-            "util": len(UTIL_BINS),
-            "due": len(DUE_BINS),
-            "gap": len(GAP_BINS),
-            "delta": len(DELTA_BINS),
-            "intervention": len(encoders.intervention_type_to_id),
-        },
-        hidden_size=config.model.hidden_size,
-        num_layers=config.model.num_layers,
-        num_heads=config.model.num_heads,
-        dropout=config.model.dropout,
-    ).to(device)
-    lstm = LSTMDistressModel(
-        input_size=8,
-        hidden_size=max(64, config.model.hidden_size // 2),
-        dropout=config.model.dropout,
-    ).to(device)
-    try:
-        transformer.load_state_dict(torch.load(transformer_path, map_location=device))
-        lstm.load_state_dict(torch.load(lstm_path, map_location=device))
-    except RuntimeError:
-        return None
-    transformer.eval()
-    lstm.eval()
-
-    thresholds = {"transformer": 0.5, "lstm": 0.5}
-    if metrics_path.exists():
-        metrics = json.loads(metrics_path.read_text())
-        thresholds["transformer"] = float(metrics.get("transformer", {}).get("test", {}).get("threshold", 0.5))
-        thresholds["lstm"] = float(metrics.get("lstm", {}).get("test", {}).get("threshold", 0.5))
-    return {"device": device, "transformer": transformer, "lstm": lstm, "thresholds": thresholds}
+    return load_saved_models(default_config())
 
 
 def _lstm_probability(history: pd.DataFrame) -> Optional[float]:
@@ -188,10 +148,43 @@ def _transformer_probability(history: pd.DataFrame, intervention_type: str = "no
     loaded = _load_trained_models()
     if loaded is None or len(history) < 2:
         return None
-    seq_tokens, _, mask = _prepare_history_window(history, intervention_type=intervention_type)
-    with torch.no_grad():
-        outputs = loaded["transformer"](seq_tokens.to(loaded["device"]), mask.to(loaded["device"]))
-    return float(torch.sigmoid(outputs["distress_logits"]).item())
+    return float(
+        transformer_probability_from_history(
+            loaded["transformer"],
+            history,
+            intervention_type=intervention_type,
+            device=loaded["device"],
+            context_length=default_config().model.context_length,
+        )
+    )
+
+
+def _simulation_score_result(
+    history: pd.DataFrame,
+    intervention_type: str,
+    horizon_days: int,
+    loaded: Optional[Dict[str, object]],
+) -> ScoreResult:
+    if loaded is None:
+        probability = _heuristic_probability(history, horizon_days)
+        threshold = 0.5
+    else:
+        probability = float(
+            transformer_probability_from_history(
+                loaded["transformer"],
+                history,
+                intervention_type=intervention_type,
+                device=loaded["device"],
+                context_length=default_config().model.context_length,
+            )
+        )
+        threshold = float(loaded["thresholds"]["transformer"])
+    return ScoreResult(
+        distress_probability=round(probability, 4),
+        distress_label=probability >= threshold,
+        top_drivers=_top_drivers(history),
+        recent_risk_signals=_recent_signals(history),
+    )
 
 
 def _top_drivers(history: pd.DataFrame) -> List[str]:
@@ -225,9 +218,9 @@ def _recent_signals(history: pd.DataFrame) -> List[str]:
 
 def score_customer(history: pd.DataFrame | List[Dict[str, object]], horizon_days: int = 30) -> ScoreResult:
     history_df = _coerce_history(history)
-    probability = _lstm_probability(history_df)
+    probability = _transformer_probability(history_df, intervention_type="none")
     loaded = _load_trained_models()
-    threshold = 0.5 if loaded is None else float(loaded["thresholds"]["lstm"])
+    threshold = 0.5 if loaded is None else float(loaded["thresholds"]["transformer"])
     if probability is None:
         probability = _heuristic_probability(history_df, horizon_days)
     else:
@@ -348,8 +341,8 @@ def simulate_intervention(
 
     baseline_history = pd.concat([history_df, pd.DataFrame(baseline_forecast.projected_events)], ignore_index=True, sort=False)
     intervention_history = pd.concat([adjusted_history, pd.DataFrame(intervention_forecast.projected_events)], ignore_index=True, sort=False)
-    baseline_risk = score_customer(baseline_history, horizon_days=horizon_days)
-    intervention_risk = score_customer(intervention_history, horizon_days=horizon_days)
+    baseline_risk = _simulation_score_result(baseline_history, "none", horizon_days, loaded)
+    intervention_risk = _simulation_score_result(intervention_history, intervention_type, horizon_days, loaded)
 
     scenario_differences = [
         f"Risk changes by {round(intervention_risk.distress_probability - baseline_risk.distress_probability, 4)} under {intervention_type}.",

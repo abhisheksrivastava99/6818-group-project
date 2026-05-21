@@ -384,6 +384,7 @@ This function:
 
 - accepts a customer history
 - loads trained models if available
+- uses the transformer as the default live scorer when compatible saved artifacts exist
 - returns a distress probability
 - returns a distress label
 - returns top risk drivers
@@ -477,6 +478,16 @@ The Overview page currently shows:
 - portfolio stress monitoring by segment and intervention
 - representative customers
 
+## 13.1A Collections Prioritization
+
+The Collections Prioritization page allows the user to:
+
+- rank customers by current transformer-based live risk
+- compare that live risk with the best intervention-adjusted scenario outcome
+- view a recommended intervention per customer
+- inspect projected risk reduction and post-intervention risk
+- filter the outreach queue by archetype, income band, employment type, region, and risk segment
+
 ## 13.2 Customer Explorer
 
 The Customer Explorer allows the user to:
@@ -507,7 +518,7 @@ The What-If Simulator allows the user to:
 The Model And Governance page shows:
 
 - transformer-versus-LSTM architecture summary
-- rationale for using the LSTM as the primary scorer and the transformer as the forecaster
+- rationale for using the transformer as the primary live scorer and the LSTM as the benchmark baseline
 - synthetic-data disclaimer
 - privacy, fairness, explainability, reliability, and operational-risk notes
 - fairness tables by income band, employment type, region, risk segment, and archetype
@@ -523,6 +534,7 @@ Based on the current workspace, we can confidently say the project already demon
 - 30-day distress scoring
 - short-horizon event-path forecasting
 - what-if intervention simulation
+- collections and outreach triage prioritization
 - a reproducible Streamlit analyst demo
 - automated tests for core data and model pipeline behavior
 
@@ -534,6 +546,7 @@ Some parts are implemented in a simplified way and should be described carefully
 - synthetic data is realistic enough for demo use, but not a substitute for real bank history
 - current explainability is heuristic and timeline-based rather than a full model-interpretability framework
 - retraining is required after internal feature-shape changes because saved checkpoints encode the old transformer/LSTM input shapes
+- switching the default live scorer between compatible saved models does not require rerunning `train.py`
 
 Being transparent about this will make the final report stronger, not weaker.
 

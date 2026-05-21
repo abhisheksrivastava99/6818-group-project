@@ -243,3 +243,19 @@ def decode_forecast(
             },
         },
     }
+
+
+def transformer_probability_from_history(
+    transformer: torch.nn.Module,
+    history: pd.DataFrame,
+    intervention_type: str,
+    device: torch.device,
+    context_length: int = 256,
+) -> float:
+    history_df = history.copy()
+    history_df["event_timestamp"] = pd.to_datetime(history_df["event_timestamp"])
+    history_df = history_df.sort_values("event_timestamp").reset_index(drop=True)
+    seq_tokens, mask = _prepare_transformer_window(history_df, intervention_type, context_length)
+    with torch.no_grad():
+        outputs = transformer(seq_tokens.to(device), mask.to(device))
+    return float(torch.sigmoid(outputs["distress_logits"]).item())

@@ -24,6 +24,7 @@ from banksimfm.data.pipeline import (
     GAP_BINS,
     UTIL_BINS,
     build_datasets,
+    build_encoders,
     compute_due_amount_feature,
 )
 from banksimfm.data.schema import INTERVENTION_TYPES
@@ -31,7 +32,12 @@ from banksimfm.models.baseline import LSTMDistressModel
 from banksimfm.models.transformer import CausalEventTransformer
 from banksimfm.runtime import resolve_device
 from banksimfm.sim.engine import apply_intervention_policy
-from banksimfm.sim.scenario import apply_state_to_history, decode_forecast, history_to_state
+from banksimfm.sim.scenario import (
+    apply_state_to_history,
+    decode_forecast,
+    history_to_state,
+    transformer_probability_from_history,
+)
 
 
 SEGMENT_FIELDS = ["archetype", "income_band", "employment_type", "region", "risk_segment"]
@@ -41,6 +47,53 @@ SEGMENT_FIELDS = ["archetype", "income_band", "employment_type", "region", "risk
 class TrainingArtifacts:
     metrics: Dict[str, Dict[str, float]]
     model_paths: Dict[str, Path]
+
+
+def load_saved_models(config: ProjectConfig | None = None) -> Dict[str, object] | None:
+    config = config or default_config()
+    transformer_path = config.artifacts_dir / "transformer.pt"
+    lstm_path = config.artifacts_dir / "lstm.pt"
+    metrics_path = config.artifacts_dir / "metrics.json"
+    if not transformer_path.exists() or not lstm_path.exists():
+        return None
+
+    device = resolve_device()
+    encoders = build_encoders()
+    transformer = CausalEventTransformer(
+        vocab_size=len(encoders.event_type_to_id) + 1,
+        bucket_sizes={
+            "amount": len(AMOUNT_BINS),
+            "balance": len(BALANCE_BINS),
+            "util": len(UTIL_BINS),
+            "due": len(DUE_BINS),
+            "gap": len(GAP_BINS),
+            "delta": len(DELTA_BINS),
+            "intervention": len(encoders.intervention_type_to_id),
+        },
+        hidden_size=config.model.hidden_size,
+        num_layers=config.model.num_layers,
+        num_heads=config.model.num_heads,
+        dropout=config.model.dropout,
+    ).to(device)
+    lstm = LSTMDistressModel(
+        input_size=8,
+        hidden_size=max(64, config.model.hidden_size // 2),
+        dropout=config.model.dropout,
+    ).to(device)
+    try:
+        transformer.load_state_dict(torch.load(transformer_path, map_location=device))
+        lstm.load_state_dict(torch.load(lstm_path, map_location=device))
+    except RuntimeError:
+        return None
+    transformer.eval()
+    lstm.eval()
+
+    thresholds = {"transformer": 0.5, "lstm": 0.5}
+    if metrics_path.exists():
+        metrics = json.loads(metrics_path.read_text())
+        thresholds["transformer"] = float(metrics.get("transformer", {}).get("test", {}).get("threshold", 0.5))
+        thresholds["lstm"] = float(metrics.get("lstm", {}).get("test", {}).get("threshold", 0.5))
+    return {"device": device, "transformer": transformer, "lstm": lstm, "thresholds": thresholds}
 
 
 def _build_dataloaders(datasets: Dict[str, torch.utils.data.Dataset], batch_size: int) -> Dict[str, DataLoader]:
@@ -186,6 +239,22 @@ def _lstm_probability_from_history(model: nn.Module, history: pd.DataFrame, devi
     with torch.no_grad():
         logits = model(dense_features.to(device), mask.to(device))
     return float(torch.sigmoid(logits).item())
+
+
+def _scenario_probability_from_history(
+    transformer: nn.Module,
+    history: pd.DataFrame,
+    intervention_type: str,
+    device: torch.device,
+    context_length: int,
+) -> float:
+    return transformer_probability_from_history(
+        transformer,
+        history,
+        intervention_type=intervention_type,
+        device=device,
+        context_length=context_length,
+    )
 
 
 def _collect_sample_records(transformer: nn.Module, lstm: nn.Module, dataloader: DataLoader, device: torch.device) -> pd.DataFrame:
@@ -354,7 +423,13 @@ def _compute_simulation_metrics(
 
         baseline_generated = pd.DataFrame(greedy["projected_events"])
         baseline_history = pd.concat([history, baseline_generated], ignore_index=True, sort=False)
-        baseline_risk = _lstm_probability_from_history(lstm, baseline_history, device, config.model.context_length)
+        baseline_risk = _scenario_probability_from_history(
+            transformer,
+            baseline_history,
+            intervention_type="none",
+            device=device,
+            context_length=config.model.context_length,
+        )
 
         customer_meta = test_customers[test_customers["customer_id"] == customer_id].iloc[0].to_dict()
         for intervention in INTERVENTION_TYPES[1:]:
@@ -372,7 +447,13 @@ def _compute_simulation_metrics(
             )
             intervention_generated = pd.DataFrame(intervention_forecast["projected_events"])
             intervention_history = pd.concat([adjusted_history, intervention_generated], ignore_index=True, sort=False)
-            intervention_risk = _lstm_probability_from_history(lstm, intervention_history, device, config.model.context_length)
+            intervention_risk = _scenario_probability_from_history(
+                transformer,
+                intervention_history,
+                intervention_type=intervention,
+                device=device,
+                context_length=config.model.context_length,
+            )
             delta = baseline_risk - intervention_risk
             row = {
                 "customer_id": customer_id,
@@ -435,6 +516,28 @@ def _compute_simulation_metrics(
             "portfolio_by_segment": portfolio_by_segment,
         },
     }
+
+
+def refresh_simulation_metrics(config: ProjectConfig | None = None) -> Dict[str, object]:
+    config = config or default_config()
+    bundle, datasets = build_datasets(config)
+    loaded = load_saved_models(config)
+    if loaded is None:
+        raise RuntimeError("Compatible saved artifacts were not found. Run train.py to generate current checkpoints first.")
+
+    dataloaders = _build_dataloaders(datasets, config.model.batch_size)
+    simulation_metrics = _compute_simulation_metrics(
+        bundle,
+        loaded["transformer"],
+        loaded["lstm"],
+        loaded["device"],
+        config,
+        loaded["thresholds"],
+        dataloaders["test"],
+    )
+    output_path = config.artifacts_dir / "simulation_metrics.json"
+    output_path.write_text(json.dumps(simulation_metrics, indent=2))
+    return simulation_metrics
 
 
 def train_models(config: ProjectConfig | None = None) -> TrainingArtifacts:

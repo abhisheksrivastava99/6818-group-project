@@ -6,7 +6,7 @@ The prototype includes:
 
 - a synthetic retail banking event generator
 - a shared sequence-data pipeline
-- a causal transformer forecaster and LSTM baseline scorer
+- a causal transformer live scorer and forecaster, plus an LSTM baseline benchmark
 - a deterministic intervention simulator
 - a Streamlit analyst dashboard
 
@@ -50,7 +50,8 @@ regtech/
   - next balance-delta-bucket prediction
   - distress classification
 - Intervention-conditioned transformer forecasting with explicit state handoff
-- LSTM baseline for primary 30-day distress prediction
+- Transformer as the default live 30-day distress scorer when compatible artifacts exist
+- LSTM baseline benchmark retained for comparison in holdout metrics and fairness views
 - Public APIs:
   - `score_customer(history, horizon_days=30)`
   - `forecast_customer(history, horizon_days=30)`
@@ -112,6 +113,14 @@ This will generate:
 - `artifacts/simulation_metrics.json`
 - `artifacts/fairness_metrics.json`
 
+For a no-retrain refresh of simulation summaries only, use:
+
+```bash
+PYTHONPATH=src python3 refresh_simulation_metrics.py
+```
+
+This reuses the current saved checkpoints and rewrites only `artifacts/simulation_metrics.json`.
+
 The training pipeline:
 
 - builds synthetic datasets
@@ -145,10 +154,12 @@ The app supports:
 - cohort-level overview and distress distribution
 - per-customer event timeline, balance chart, utilization chart, and risk review
 - intervention what-if comparison across `30`, `60`, and `90` day horizons
+- collections/outreach prioritization with ranked customers, recommended interventions, and projected risk reduction
 - top forecasted negative-event summaries and scenario metrics
 - portfolio stress monitoring by archetype, income band, employment type, region, and risk segment
 - model and governance documentation with fairness summaries
 - intervention scenarios that preserve adjusted account state through decoding instead of only swapping an intervention token
+- a transformer-first live scoring path that does not require rerunning `train.py` when only the default scorer choice changes
 
 ## Apple Silicon Note
 
@@ -192,6 +203,7 @@ The current tests cover:
 - [src/banksimfm/models/training.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/models/training.py): training loops and evaluation
 - [src/banksimfm/inference.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/inference.py): public scoring, forecasting, and simulation APIs
 - [src/banksimfm/app/dashboard.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/app/dashboard.py): Streamlit dashboard
+- [refresh_simulation_metrics.py](/Users/abhishek/Desktop/Projects/regtech/refresh_simulation_metrics.py): no-retrain simulation-metric refresh entrypoint
 - [requirements.md](/Users/abhishek/Desktop/Projects/regtech/requirements.md): project requirements specification
 
 ## Current Limitations
