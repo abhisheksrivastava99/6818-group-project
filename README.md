@@ -60,6 +60,7 @@ regtech/
   - Overview
   - Customer Explorer
   - What-If Simulator
+  - Collections Prioritization
   - Model And Governance
 - Portfolio stress monitoring and fairness-ready customer metadata
 - Evaluation artifacts for:
@@ -93,7 +94,7 @@ Synthetic demo data has already been generated and stored in [artifacts](/Users/
 At the current default config, this is roughly:
 
 - `300` synthetic customers
-- `82,391` event rows
+- `82,754` event rows
 
 The tuned generator now uses softer, probabilistic archetypes with more customer-level variation, recovery behavior, and less deterministic distress pathways.
 
@@ -149,6 +150,10 @@ Launch the analyst dashboard with:
 PYTHONPATH=src streamlit run app.py
 ```
 
+Live demo:
+
+- [BankSimFM Streamlit App](https://6818-group9-banksimfm.streamlit.app/)
+
 The app supports:
 
 - cohort-level overview and distress distribution
@@ -161,50 +166,6 @@ The app supports:
 - intervention scenarios that preserve adjusted account state through decoding instead of only swapping an intervention token
 - a transformer-first live scoring path that does not require rerunning `train.py` when only the default scorer choice changes
 
-## Apple Silicon Note
-
-The code now prefers devices in this order:
-
-1. `mps`
-2. `cuda`
-3. `cpu`
-
-That logic lives in [src/banksimfm/runtime.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/runtime.py).
-
-To check what your current environment will use:
-
-```bash
-PYTHONPATH=src python3 -c "from banksimfm.runtime import resolve_device; print(resolve_device())"
-```
-
-If this prints `cpu` on a Mac with Apple Silicon, your current PyTorch install likely does not expose MPS in that interpreter yet. The project will still run, but training will use CPU.
-
-## Tests
-
-Run the automated tests with:
-
-```bash
-PYTHONPATH=src python3 -m unittest discover -s tests -v
-```
-
-The current tests cover:
-
-- chronological event generation
-- balance continuity across events
-- customer-split leakage checks
-- archetype distress-rate sanity and split-label distribution checks
-- training artifact creation
-- public inference API behavior
-
-## Main Files
-
-- [src/banksimfm/data/generator.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/data/generator.py): synthetic event generation
-- [src/banksimfm/data/pipeline.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/data/pipeline.py): preprocessing, bucketing, window construction, customer splits
-- [src/banksimfm/models/training.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/models/training.py): training loops and evaluation
-- [src/banksimfm/inference.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/inference.py): public scoring, forecasting, and simulation APIs
-- [src/banksimfm/app/dashboard.py](/Users/abhishek/Desktop/Projects/regtech/src/banksimfm/app/dashboard.py): Streamlit dashboard
-- [refresh_simulation_metrics.py](/Users/abhishek/Desktop/Projects/regtech/refresh_simulation_metrics.py): no-retrain simulation-metric refresh entrypoint
-- [requirements.md](/Users/abhishek/Desktop/Projects/regtech/requirements.md): project requirements specification
 
 ## Current Limitations
 
@@ -213,8 +174,5 @@ The current tests cover:
 - Transformer checkpoint compatibility changes when internal sequence features change, so a fresh `train.py` run is required after major model/pipeline updates
 - The prototype is optimized for coursework and demos, not production deployment
 - Full training speed depends on local PyTorch device support
-- Final report, slide deck, and business-value write-up still need to be completed outside the codebase
+- Submission packaging, slide design, and final presentation polish are handled outside the core codebase
 
-## Project Context
-
-This repository is designed to support the MH6818 FinTech Innovation with AI group project and the BankSimFM requirements in [requirements.md](/Users/abhishek/Desktop/Projects/regtech/requirements.md).
